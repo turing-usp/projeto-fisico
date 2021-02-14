@@ -1,21 +1,58 @@
-import os
+from collections import defaultdict
 import numpy as np
-from gym.spaces import Box
+from gym import spaces
 from ray import tune
 from ray.rllib.env.unity3d_env import Unity3DEnv
+from ray.rllib.utils.annotations import override
 import torch
+
+
+class PhysicalEnv(Unity3DEnv):
+    def __init__(self, *args, bonus_coeff=0, bonus_decay=0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bonus_coeff = bonus_coeff
+        self.bonus_decay = bonus_decay
+        self.last_actions = defaultdict(lambda: [0, 0, 0])
+
+    def transform_rewards(self, rewards):
+        for agent in rewards:
+            assert abs(self.last_actions[agent][0]) <= 1
+            rewards[agent] += self.bonus_coeff * self.last_actions[agent][0]
+        return rewards
+
+    @override(Unity3DEnv)
+    def step(self, action_dict):
+        action_dict = {
+            agent: np.array([*a0, a1]) for (agent, (a0, a1)) in action_dict.items()
+        }
+        obs, rewards, dones, infos = super().step(action_dict)
+
+        # Save the last actions for each agent
+        self.last_actions.update(action_dict)
+
+        return obs, self.transform_rewards(rewards), dones, infos
+
+    @override(Unity3DEnv)
+    def reset(self):
+        self.bonus_coeff *= self.bonus_decay
+        return super().reset()
 
 
 def main():
     tune.register_env(
         "fisico",
-        lambda _: Unity3DEnv(
+        lambda _: PhysicalEnv(
             no_graphics=False,
             episode_horizon=1000,
-        ))
+            bonus_coeff=.2,
+            bonus_decay=.7,
+        )
+    )
 
-    obs_space = Box(float("-inf"), float("inf"), (21,), dtype=np.float32)
-    action_space = Box(-1, 1, (3,), dtype=np.float32)
+    obs_space = spaces.Box(float("-inf"), float("inf"),
+                           (21,), dtype=np.float32)
+    action_space = spaces.Tuple(
+        (spaces.Box(-1, 1, (2,), dtype=np.float32), spaces.Discrete(2)))
     policy = (None, obs_space, action_space, {})
 
     config = {
@@ -30,7 +67,7 @@ def main():
         "num_sgd_iter": 20,
         "rollout_fragment_length": 100,
         "clip_param": 0.2,
-        "entropy_coeff": 0.01,
+        "entropy_coeff": 0.02,
 
         # Multi-agent setup for the particular env.
         "multiagent": {
@@ -39,6 +76,7 @@ def main():
         },
         "model": {
             "fcnet_hiddens": [256, 256],
+            "use_lstm": True,
         },
         "framework": "torch",
         "no_done_at_end": True,
