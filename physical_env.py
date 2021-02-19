@@ -26,8 +26,11 @@ class PhysicalEnv(Unity3DEnv):
 
     def transform_rewards(self, rewards):
         for agent in rewards:
-            assert abs(self.last_actions[agent][0]) <= 1
-            rewards[agent] += self.bonus_coeff * self.last_actions[agent][0]
+            accel = self.last_actions[agent][0]
+            brake = self.last_actions[agent][2] == 0
+            assert abs(accel) <= 1
+            if accel > 0 and not brake:
+                rewards[agent] += self.bonus_coeff * accel
         return rewards
 
     @override(Unity3DEnv)
@@ -50,10 +53,9 @@ class PhysicalEnv(Unity3DEnv):
 
 tune.register_env(
     "fisico",
-    lambda _: PhysicalEnv(
+    lambda config: PhysicalEnv(
         no_graphics=False,
-        episode_horizon=1000,
-        bonus_coeff=.2,
-        bonus_decay=.7,
+        episode_horizon=1024,
+        **config,
     )
 )
