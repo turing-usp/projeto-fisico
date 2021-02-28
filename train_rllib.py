@@ -15,6 +15,12 @@ def main():
             "file_name": args.file_name,
             "bonus_coeff": 0,
             "bonus_decay": .95,
+            "unity_config": {
+                "NumHazard": 1,
+                "MinHazardSpeed": 1,
+                "MaxHazardSpeed": 10,
+                "AgentCount": 20,
+            },
         },
         "num_workers": 0,
         "lr": 3e-4,

@@ -1,10 +1,13 @@
 from collections import defaultdict
+from mlagents_envs.side_channel import side_channel
 import numpy as np
 from gym import spaces
 from ray import tune
 from ray.rllib.env.unity3d_env import Unity3DEnv
 from ray.rllib.utils.annotations import override
+from config_side_channel import ConfigSideChannel
 
+from mlagents_envs.environment import UnityEnvironment
 
 class PhysicalEnv(Unity3DEnv):
 
@@ -18,8 +21,21 @@ class PhysicalEnv(Unity3DEnv):
 
     policy = (None, observation__space, action_space, {})
 
-    def __init__(self, *args, bonus_coeff=0, bonus_decay=0, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, bonus_coeff=0, bonus_decay=0, unity_config={}, **kwargs):
+        self._config_side_channel = ConfigSideChannel(**unity_config)
+
+        # Monkey patch to make rllib's Unity3DEnv instantiate the UnityEnvironment with a SideChannel
+        original_init = UnityEnvironment.__init__
+        try:
+            def new_init(inner_self, *args, **kwargs):
+                side_channels = kwargs.pop('side_channels', [])
+                side_channels.append(self._config_side_channel)
+                original_init(inner_self, *args, **kwargs, side_channels=side_channels)
+            UnityEnvironment.__init__ = new_init
+            super().__init__(*args, **kwargs)
+        finally:
+            UnityEnvironment.__init__ = original_init
+
         self.bonus_coeff = bonus_coeff
         self.bonus_decay = bonus_decay
         self.last_actions = defaultdict(lambda: [0, 0, 0])
@@ -32,6 +48,9 @@ class PhysicalEnv(Unity3DEnv):
             if accel > 0 and not brake:
                 rewards[agent] += self.bonus_coeff * accel
         return rewards
+
+    def set_config(self, key, value):
+        self._config_side_channel.set(key, value)
 
     @override(Unity3DEnv)
     def step(self, action_dict):
