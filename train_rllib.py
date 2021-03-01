@@ -16,10 +16,13 @@ def main():
             "bonus_coeff": 0,
             "bonus_decay": .95,
             "unity_config": {
-                "NumHazard": 1,
-                "MinHazardSpeed": 1,
-                "MaxHazardSpeed": 10,
                 "AgentCount": 20,
+                "AgentCheckpointTTL": 60,
+                "ChunkDifficulty": 0,
+                "ChunkMinAgentsBeforeDestruction": 0,  # wait for all
+                "ChunkTTL": 30,
+                "HazardCountPerChunk": 1,
+                "TimeScale": 10,
             },
         },
         "num_workers": 0,

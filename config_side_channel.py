@@ -1,16 +1,135 @@
 from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
 import uuid
 
+FIELDS = {
+    #######################
+    #    AGENT CONFIGS    #
+    #######################
 
-FIELDS_PER_TYPE = {
-    OutgoingMessage.write_int32:   ['NumHazard', 'MinHazardSpeed', 'MaxHazardSpeed', 'AgentCount'],
-    OutgoingMessage.write_float32: [],
-    OutgoingMessage.write_string:  [],
+    # Number of agents (cars).
+    # Takes effect: on environment reset
+    # Default: 1
+    'AgentCount': int,
+
+    # The agent requests an action every AgentDecisionPeriod timesteps.
+    # Takes effect: on agent reset
+    # Default: 20
+    'AgentDecisionPeriod': int,
+
+    # Number of rays per direction used to create the observations.
+    # Note: total number of rays = 2*AgentRaysPerDirection + 1
+    # Takes effect: on agent reset
+    # Default: 3
+    'AgentRaysPerDirection': int,
+
+    # Length of the rays.
+    # Takes effect: on agent reset
+    # Default: 64
+    'AgentRayLength': int,
+
+    # Maximum time (in seconds) between two checkpoints.
+    # If an agent stays longer than this without passing a checkpoint, it is killed.
+    # Takes effect: immediately
+    # Default: 60
+    'AgentCheckpointTTL': float,
+
+
+    #######################
+    #    CHUNK CONFIGS    #
+    #######################
+
+    # Difficulty of the chunks used (sequential, starting from zero)
+    # Takes effect: on chunk creation
+    # Default: 0
+    'ChunkDifficulty': int,
+
+    # The number of agents required to pass a chunk before it's destroyed.
+    # If zero, wait until all agents have passed.
+    # Takes effect: on chunk creation
+    # Default: 0
+    'ChunkMinAgentsBeforeDestruction': int,
+
+    # Delay (in seconds) before a chunk is destroyed when at least ChunkMinAgentsBeforeDestruction
+    # have passed it.
+    # Necessary because when an agent "passes" a chunk, a part of the car is
+    # still in that chunk.
+    # Takes effect: immediately
+    # Default: 5
+    'ChunkDelayBeforeDestruction': float,
+
+    # The maximum time (in seconds) before a chunk is automatically destroyed.
+    # If zero, wait until all agents have passed.
+    # Takes effect: when a chunk first sees a car
+    # Default: 30
+    'ChunkTTL': float,
+
+
+    ########################
+    #    HAZARD CONFIGS    #
+    ########################
+
+    # Number of hazards spawned per chunk.
+    # Takes effect: on chunk creation
+    # Default: 2
+    'HazardCountPerChunk': int,
+
+    # Minimum hazard speed
+    # Takes effect: on chunk creation
+    # Default: 1
+    'HazardMinSpeed': int,
+
+    # Maximum hazard speed
+    # Takes effect: on chunk creation
+    # Default: 10
+    'HazardMaxSpeed': int,
+
+
+    ###############################
+    #    CAR CONTROLER CONFIGS    #
+    ###############################
+
+    # Takes effect: on agent reset
+    # Default: 20_000
+    'CarStrenghtCoefficient': float,
+
+    # Takes effect: on agent reset
+    # Default: 200
+    'CarBrakeStrength': float,
+
+    # Takes effect: on agent reset
+    # Default: 20
+    'CarMaxTurn': float,
+
+
+    ######################
+    #    TIME CONFIGS    #
+    ######################
+
+    # Controls the simulation speed.
+    # e.g. TimeScale=1 for 1 simulation second  / real second
+    #  and TimeScale=2 for 2 simulation seconds / real second
+    # Takes effect: immediately
+    # Default: 1
+    'TimeScale': float,
+
+    # Time between unity FixedUpdate calls.
+    # Smaller is more accurate, but more computationally intensive
+    # Takes effect: immediately
+    # Default: 0.04
+    'FixedDeltaTime': float,
 }
 
-FIELDS = {name.lower(): writer
-          for writer, names in FIELDS_PER_TYPE.items()
-          for name in names}
+MESSAGE_WRITERS = {
+    int: OutgoingMessage.write_int32,
+    float: OutgoingMessage.write_float32,
+    str: OutgoingMessage.write_string,
+    bool: OutgoingMessage.write_bool,
+}
+
+FIELD_WRITERS = {
+    field_name.lower(): MESSAGE_WRITERS[typ]
+    for (field_name, typ) in FIELDS.items()
+}
 
 
 class ConfigSideChannel(SideChannel):
@@ -24,7 +143,7 @@ class ConfigSideChannel(SideChannel):
         print('ConfigSideChannel received an unexpected message:', msg)
 
     def set(self, key, value) -> None:
-        writer = FIELDS.get(key.lower(), None)
+        writer = FIELD_WRITERS.get(key.lower(), None)
         if not writer:
             raise ValueError(f'Invalid key: {key}')
 
