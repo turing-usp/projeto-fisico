@@ -1,4 +1,5 @@
 import argparse
+import os
 import torch
 from ray import tune
 from physical_env import PhysicalEnv
@@ -12,7 +13,7 @@ def main():
     config = {
         "env": "fisico",
         "env_config": {
-            "file_name": args.file_name,
+            "file_name": os.path.abspath(args.file_name),  # rllib will change the cwd
             "bonus_coeff": 0,
             "bonus_decay": .95,
             "unity_config": {
@@ -62,7 +63,7 @@ def main():
         stop=stop,
         verbose=1,
         checkpoint_freq=5,
-        local_dir='./results1')
+        local_dir='./results')
 
 
 if __name__ == '__main__':
