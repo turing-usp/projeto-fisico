@@ -3,6 +3,7 @@ import os
 import torch
 from ray import tune
 from physical_env import PhysicalEnv
+from callbacks import Callbacks
 from schedulers import LinearScheduler, ExponentialScheduler
 
 
@@ -18,9 +19,8 @@ def main():
     config = {
         "env": "fisico",
         "env_config": {
-            "file_name": args.file_name and os.path.abspath(args.file_name),  # rllib will change the cwd
-            "bonus_coeff": 0,
-            "bonus_decay": .95,
+            # use absolute path because rllib will change the cwd
+            "file_name": args.file_name and os.path.abspath(args.file_name),
             "episode_horizon": EPISODE_HORIZON,
             "unity_config": {
                 "AgentCount": 64,
@@ -33,6 +33,7 @@ def main():
                 "AgentVelocityBonus_CoeffPerSecond": LinearScheduler(10, 0, num_episodes=20),
             },
         },
+        "callbacks": Callbacks,
         "num_workers": 0,
         "lr": 3e-4,
         "lambda": 0.95,
