@@ -1,5 +1,4 @@
 from collections import defaultdict
-from mlagents_envs.side_channel import side_channel
 import numpy as np
 from gym import spaces
 from ray import tune
@@ -8,6 +7,7 @@ from ray.rllib.utils.annotations import override
 from config_side_channel import ConfigSideChannel
 
 from mlagents_envs.environment import UnityEnvironment
+
 
 class PhysicalEnv(Unity3DEnv):
 
@@ -74,8 +74,7 @@ class PhysicalEnv(Unity3DEnv):
 tune.register_env(
     "fisico",
     lambda config: PhysicalEnv(
-        no_graphics=False,
-        episode_horizon=1024,
+        no_graphics='file_name' in config,
         **config,
     )
 )
