@@ -33,6 +33,22 @@ FIELDS = {
     # Default: 60
     'AgentCheckpointTTL': float,
 
+    # Configuration for the velocity reward bonus.
+    # Given the forward velocity v, clamped to (MinVelocity, MaxVelocity),
+    # the cumulative bonus per second is w*v,
+    # where w grows linearly from zero to CoeffPerSecond over the WarmupTime
+    # (in seconds) and is reset to zero whenever sign(v) changes.
+    # Takes effect: immediately
+    # Default:
+    #   MaxVelocity: 1
+    #   MinVelocity: -10
+    #   WarmupTime: 10
+    #   CoeffPerSecond: 0 (disabled)
+    'AgentVelocityBonus_MaxVelocity': float,
+    'AgentVelocityBonus_MinVelocity': float,
+    'AgentVelocityBonus_WarmupTime': float,
+    'AgentVelocityBonus_CoeffPerSecond': float,
+
 
     #######################
     #    CHUNK CONFIGS    #
