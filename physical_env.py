@@ -67,6 +67,7 @@ class PhysicalEnv(Unity3DEnv):
     @override(Unity3DEnv)
     def reset(self):
         self.bonus_coeff *= self.bonus_decay
+        self.last_actions.clear()
         return super().reset()
 
 

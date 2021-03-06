@@ -13,7 +13,7 @@ def main():
     config = {
         "env": "fisico",
         "env_config": {
-            "file_name": os.path.abspath(args.file_name),  # rllib will change the cwd
+            "file_name": args.file_name and os.path.abspath(args.file_name),  # rllib will change the cwd
             "bonus_coeff": 0,
             "bonus_decay": .95,
             "unity_config": {
