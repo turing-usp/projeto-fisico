@@ -3,6 +3,7 @@ import os
 import torch
 from ray import tune
 from physical_env import PhysicalEnv
+from schedulers import LinearScheduler, ExponentialScheduler
 
 
 EPISODE_HORIZON = 1024
@@ -29,6 +30,7 @@ def main():
                 "ChunkTTL": 30,
                 "HazardCountPerChunk": 1,
                 "TimeScale": 100,
+                "AgentVelocityBonus_CoeffPerSecond": LinearScheduler(10, 0, num_episodes=20),
             },
         },
         "num_workers": 0,

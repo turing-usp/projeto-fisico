@@ -8,6 +8,24 @@ from config_side_channel import ConfigSideChannel
 
 from mlagents_envs.environment import UnityEnvironment
 
+from schedulers import Scheduler
+
+
+def find_schedulers(obj, base=''):
+    d = {}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            full_key = f'{base}.{k}' if base else k
+            if isinstance(v, Scheduler):
+                d[full_key] = v
+            else:
+                d.update(find_schedulers(v, base=full_key))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            d.update(find_schedulers(v, base=f'{base}[{i}]'))
+
+    return d
+
 
 class PhysicalEnv(Unity3DEnv):
 
@@ -21,7 +39,7 @@ class PhysicalEnv(Unity3DEnv):
 
     policy = (None, observation__space, action_space, {})
 
-    def __init__(self, *args, bonus_coeff=0, bonus_decay=0, unity_config={}, **kwargs):
+    def __init__(self, *args, unity_config={}, **kwargs):
         self._config_side_channel = ConfigSideChannel(**unity_config)
 
         # Monkey patch to make rllib's Unity3DEnv instantiate the UnityEnvironment with a SideChannel
@@ -36,18 +54,7 @@ class PhysicalEnv(Unity3DEnv):
         finally:
             UnityEnvironment.__init__ = original_init
 
-        self.bonus_coeff = bonus_coeff
-        self.bonus_decay = bonus_decay
-        self.last_actions = defaultdict(lambda: [0, 0, 0])
-
-    def transform_rewards(self, rewards):
-        for agent in rewards:
-            accel = self.last_actions[agent][0]
-            brake = self.last_actions[agent][2] == 0
-            assert abs(accel) <= 1
-            if accel > 0 and not brake:
-                rewards[agent] += self.bonus_coeff * accel
-        return rewards
+        self.schedulers = find_schedulers({'unity_config': unity_config})
 
     def set_config(self, key, value):
         self._config_side_channel.set(key, value)
@@ -57,17 +64,13 @@ class PhysicalEnv(Unity3DEnv):
         action_dict = {
             agent: np.array([*a0, a1]) for (agent, (a0, a1)) in action_dict.items()
         }
-        obs, rewards, dones, infos = super().step(action_dict)
 
-        # Save the last actions for each agent
-        self.last_actions.update(action_dict)
-
-        return obs, self.transform_rewards(rewards), dones, infos
+        return super().step(action_dict)
 
     @override(Unity3DEnv)
     def reset(self):
-        self.bonus_coeff *= self.bonus_decay
-        self.last_actions.clear()
+        for sch in self.schedulers.values():
+            sch.step()
         return super().reset()
 
 
