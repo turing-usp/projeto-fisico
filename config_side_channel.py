@@ -1,3 +1,4 @@
+from schedulers import Scheduler
 from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
 import uuid
 
@@ -152,6 +153,7 @@ class ConfigSideChannel(SideChannel):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(uuid.UUID("3e7c67af-6e4d-446d-b318-0beb6546e274"))
+        self._scheduler_removers = {}
         for k, v in kwargs.items():
             self.set(k, v)
 
@@ -159,10 +161,25 @@ class ConfigSideChannel(SideChannel):
         print('ConfigSideChannel received an unexpected message:', msg)
 
     def set(self, key, value) -> None:
-        writer = FIELD_WRITERS.get(key.lower(), None)
+        key_lower = key.lower()
+        writer = FIELD_WRITERS.get(key_lower, None)
         if not writer:
             raise ValueError(f'Invalid key: {key}')
 
+        self._scheduler_removers.pop(key_lower, lambda: None)()
+
+        if isinstance(value, Scheduler):
+            sch = value
+            self._add_handler(key_lower, sch.on_step,
+                              lambda: self._set(writer, key, sch.value))
+            value = sch.value
+        self._set(writer, key, value)
+
+    def _add_handler(self, key_lower, ev, h):
+        ev.add(h)
+        self._scheduler_removers[key_lower] = lambda: ev.remove(h)
+
+    def _set(self, writer, key, value):
         msg = OutgoingMessage()
         msg.write_string(key)
         writer(msg, value)

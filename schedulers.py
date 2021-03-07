@@ -1,9 +1,17 @@
 from abc import abstractmethod, ABC
+from event import Event
 
 
 class Scheduler(ABC):
-    @abstractmethod
+    def __init__(self):
+        self.on_step = Event()
+
     def step(self):
+        self._step()
+        self.on_step()
+
+    @abstractmethod
+    def _step(self):
         pass
 
     @property
@@ -11,18 +19,15 @@ class Scheduler(ABC):
     def value(self):
         pass
 
-    def __float__(self):
-        return float(self.value)
-
 
 class LinearScheduler(Scheduler):
-    def __init__(self, start, end, num_episodes):
+        super().__init__()
         self.n = 0
         self.start = start
         self.end = end
         self.num_episodes = num_episodes
 
-    def step(self):
+    def _step(self):
         self.n += 1
 
     @property
@@ -34,7 +39,7 @@ class LinearScheduler(Scheduler):
 
 
 class ExponentialScheduler(Scheduler):
-    def __init__(self, initial_value, decay, min_value=0):
+        super().__init__()
         self._value = initial_value
         self.min_value = min_value
         self.decay = decay
@@ -43,7 +48,8 @@ class ExponentialScheduler(Scheduler):
     def value(self):
         return self._value
 
-    def step(self):
+    def _step(self):
+        super().step()
         if self._value >= 0:
             self._value = max(self._value*self.decay, self.min_value)
         else:
