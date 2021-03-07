@@ -31,12 +31,9 @@ def find_schedulers(obj, base=''):
 class PhysicalEnv(Unity3DEnv):
 
     observation__space = spaces.Box(float("-inf"), float("inf"),
-                                    (21,), dtype=np.float32)
+                                    (14,), dtype=np.float32)
 
-    action_space = spaces.Tuple((
-        spaces.Box(-1, 1, (2,), dtype=np.float32),
-        spaces.Discrete(2),
-    ))
+    action_space = spaces.Box(-1, 1, (3,), dtype=np.float32)
 
     policy = (None, observation__space, action_space, {})
 
