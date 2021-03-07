@@ -170,7 +170,7 @@ class ConfigSideChannel(SideChannel):
 
         if isinstance(value, Scheduler):
             sch = value
-            self._add_handler(key_lower, sch.on_step,
+            self._add_handler(key_lower, sch.on_update,
                               lambda: self._set(writer, key, sch.value))
             value = sch.value
         self._set(writer, key, value)
@@ -180,6 +180,7 @@ class ConfigSideChannel(SideChannel):
         self._scheduler_removers[key_lower] = lambda: ev.remove(h)
 
     def _set(self, writer, key, value):
+        print(f'Setting {key}={value}')
         msg = OutgoingMessage()
         msg.write_string(key)
         writer(msg, value)
