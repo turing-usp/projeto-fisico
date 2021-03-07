@@ -37,7 +37,7 @@ class PhysicalEnv(Unity3DEnv):
 
     policy = (None, observation__space, action_space, {})
 
-    def __init__(self, *args, unity_config={}, **kwargs):
+    def __init__(self, *args, scheduler_step_frequency=1, unity_config={}, **kwargs):
         self._config_side_channel = ConfigSideChannel(**unity_config)
         self._metrics_side_channel = MetricsSideChannel()
 
@@ -56,6 +56,9 @@ class PhysicalEnv(Unity3DEnv):
             UnityEnvironment.__init__ = original_init
 
         self.schedulers = find_schedulers({'unity_config': unity_config})
+        self.agent_count = unity_config['AgentCount']
+        self._agent_steps = 0
+        self._agent_steps_until_scheduler_step = scheduler_step_frequency * self.agent_count
 
     def set_config(self, key, value):
         self._config_side_channel.set(key, value)
@@ -68,16 +71,18 @@ class PhysicalEnv(Unity3DEnv):
 
     @override(Unity3DEnv)
     def step(self, action_dict):
-        action_dict = {
-            agent: np.array([*a0, a1]) for (agent, (a0, a1)) in action_dict.items()
-        }
+        obs, rewards, dones, infos = super().step(action_dict)
 
-        return super().step(action_dict)
+        self._agent_steps += len(action_dict)
+        while self._agent_steps >= self._agent_steps_until_scheduler_step:
+            self._agent_steps -= self._agent_steps_until_scheduler_step
+            for sch in self.schedulers.values():
+                sch.step()
+
+        return obs, rewards, dones, infos
 
     @override(Unity3DEnv)
     def reset(self):
-        for sch in self.schedulers.values():
-            sch.step()
         return super().reset()
 
 
