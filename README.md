@@ -7,7 +7,7 @@ No PC do Turing:
 # Instala as bibliotecas necessárias
 apt get update
 apt get install cmake
-pip install gym ray[rllib] mlagents==0.20
+pip install gym ray[rllib] mlagents==0.20 torch
 
 # Baixa o arquivo do jogo
 pip install gdown
