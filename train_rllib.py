@@ -26,8 +26,8 @@ def main():
                         help='Number of training iterations to run (default: 128)')
     parser.add_argument("--time_scale", type=float, default=1000,
                         help='How fast to run the game (default: 1000)')
-    parser.add_argument("--torch", type=bool, default=False,
-                        help='Use torch instead of tensorflow (default: false)')
+    parser.add_argument("--framework", type=str, choices=['torch', 'tf'], default='torch',
+                        help='Use torch instead of tensorflow (default: torch)')
     args = parser.parse_args()
 
     import os
@@ -37,7 +37,7 @@ def main():
         args.workers = cpus - 1
 
     if args.gpus is None:
-        if args.torch:
+        if args.framework == 'torch':
             import torch
             args.gpus = torch.cuda.device_count()
         else:
@@ -109,7 +109,7 @@ def run_with_args(args):
             "type": "StochasticSampling",
             "random_timesteps": args.scheduler_step_frequency * args.workers,
         },
-        "framework": "torch" if args.torch else 'tf',
+        "framework": args.framework,
         "no_done_at_end": True,
         "log_level": args.log_level,
     }
