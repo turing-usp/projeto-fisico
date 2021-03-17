@@ -71,9 +71,10 @@ def run_with_args(args):
     ray.init()
     actors.init()
 
-    agent_count = int(round(args.agents / max(args.workers, 1)))
-    if agent_count != args.agents:
-        print('Rounding agent count to', agent_count)
+    num_envs = max(args.workers, 1)
+    agent_count_per_env = int(round(args.agents / num_envs))
+    if agent_count_per_env * num_envs != args.agents:
+        print('Rounding agent count to', agent_count_per_env*num_envs)
 
     config = {
         "env": "fisico",
@@ -82,7 +83,7 @@ def run_with_args(args):
             "episode_horizon": float('inf'),
             "scheduler_step_period": args.scheduler_step_period,
             "unity_config": {
-                "AgentCount": agent_count,
+                "AgentCount": agent_count_per_env,
                 "AgentCheckpointTTL": 60,
                 "ChunkDifficulty": 0,
                 "ChunkMinAgentsBeforeDestruction": 0,  # wait for all
