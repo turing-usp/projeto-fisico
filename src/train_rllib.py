@@ -15,6 +15,8 @@ def main():
                         '(default: 256)')
     parser.add_argument("--workers", type=int, default=None,
                         help='Number of workers to use (default: all cpus minus one)')
+    parser.add_argument("--envs-per-worker", type=int, default=1,
+                        help='Number of environments')
     parser.add_argument("--gpus", type=int, default=None,
                         help='Number of gpus to use (default: all gpus)')
     parser.add_argument("--batch_size", type=int, default=65_536,
@@ -69,7 +71,9 @@ def run_with_args(args):
     ray.init()
     actors.init()
 
-    num_envs = max(args.workers, 1)
+    agent_count = int(round(args.agents / max(args.workers, 1)))
+    if agent_count != args.agents:
+        print('Rounding agent count to', agent_count)
 
     config = {
         "env": "fisico",
@@ -78,7 +82,7 @@ def run_with_args(args):
             "episode_horizon": float('inf'),
             "scheduler_step_period": args.scheduler_step_period,
             "unity_config": {
-                "AgentCount": int(round(args.agents / num_envs)),
+                "AgentCount": agent_count,
                 "AgentCheckpointTTL": 60,
                 "ChunkDifficulty": 0,
                 "ChunkMinAgentsBeforeDestruction": 0,  # wait for all
