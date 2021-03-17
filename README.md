@@ -15,5 +15,5 @@ gdown --id 10Ntd2KP4Sq8axx51QfEWMRAxjRz_js1H --output CarAgentRL.tar.gz
 tar xf CarAgentRL.tar.gz
 
 # Roda o treinamento
-python train_rllib.py -f CarAgentRL/CarAgentRL
+python src/train_rllib.py -f CarAgentRL/CarAgentRL
 ```
