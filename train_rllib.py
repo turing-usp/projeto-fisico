@@ -10,18 +10,18 @@ def main():
                         help='Unity build file (default: None, run in editor)')
     parser.add_argument("--log_level", "-l", type=str, default="WARN",
                         help='DEBUG, INFO, WARN or ERROR (default: WARN)')
-    parser.add_argument("--agents", type=int, default=64,
+    parser.add_argument("--agents", type=int, default=256,
                         help='Total number of agents to run '
-                        '(default: 64)')
+                        '(default: 256)')
     parser.add_argument("--workers", type=int, default=None,
                         help='Number of workers to use (default: all cpus minus one)')
     parser.add_argument("--gpus", type=int, default=None,
                         help='Number of gpus to use (default: all gpus)')
-    parser.add_argument("--batch_size_per_worker", type=int, default=1024,
-                        help='Batch size per worker (default: 1024)')
+    parser.add_argument("--batch_size", type=int, default=65_536,
+                        help='Batch size, counted in agent steps (default: 65_536)')
     parser.add_argument("--scheduler_step_frequency", type=int, default=None,
                         help='Frequency with which to step the hyperparameter schedulers'
-                        '(default: batch_size_per_worker)')
+                        '(default: batch_size)')
     parser.add_argument("--train_iters", type=int, default=128,
                         help='Number of training iterations to run (default: 128)')
     parser.add_argument("--time_scale", type=float, default=1000,
@@ -49,7 +49,7 @@ def main():
         args.file_name = os.path.abspath(args.file_name)
 
     if args.scheduler_step_frequency is None:
-        args.scheduler_step_frequency = args.batch_size_per_worker
+        args.scheduler_step_frequency = args.batch_size
 
     print('Running with:')
     for k, v in vars(args).items():
@@ -64,6 +64,8 @@ def run_with_args(args):
     from callbacks import Callbacks
     from schedulers import LinearScheduler, ExponentialScheduler
 
+    num_envs = max(args.workers, 1)
+
     config = {
         "env": "fisico",
         "env_config": {
@@ -71,7 +73,7 @@ def run_with_args(args):
             "episode_horizon": float('inf'),
             "scheduler_step_frequency": args.scheduler_step_frequency,
             "unity_config": {
-                "AgentCount": int(round(args.agents / max(1, args.workers))),
+                "AgentCount": int(round(args.agents / num_envs)),
                 "AgentCheckpointTTL": 60,
                 "ChunkDifficulty": 0,
                 "ChunkMinAgentsBeforeDestruction": 0,  # wait for all
@@ -86,8 +88,8 @@ def run_with_args(args):
         "lr": 3e-4,
         "lambda": 0.95,
         "gamma": 0.995,
-        "sgd_minibatch_size": min(args.batch_size_per_worker*args.workers, 128),
-        "train_batch_size": args.batch_size_per_worker * args.workers,
+        "sgd_minibatch_size": min(args.batch_size, 128),
+        "train_batch_size": args.batch_size,
         "num_gpus": args.gpus,
         "num_sgd_iter": 30,
         "rollout_fragment_length": 200,
@@ -107,7 +109,7 @@ def run_with_args(args):
         "explore": True,
         "exploration_config": {
             "type": "StochasticSampling",
-            "random_timesteps": args.scheduler_step_frequency * args.workers,
+            "random_timesteps": args.scheduler_step_frequency,
         },
         "framework": args.framework,
         "no_done_at_end": True,
@@ -115,7 +117,7 @@ def run_with_args(args):
     }
 
     stop = {
-        "timesteps_total": args.train_iters * config["train_batch_size"],
+        "training_iteration": args.train_iters,
     }
 
     # Run the experiment.
