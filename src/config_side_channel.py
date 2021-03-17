@@ -1,6 +1,7 @@
 from schedulers import Scheduler
 from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
 import uuid
+import ray
 
 FIELDS = {
     #######################
@@ -180,7 +181,9 @@ class ConfigSideChannel(SideChannel):
         self._scheduler_removers[key_lower] = lambda: ev.remove(h)
 
     def _set(self, writer, key, value):
-        print(f'Setting {key}={value}')
+        logger = ray.get_actor('unity_config_logger')
+        logger.update.remote(key, value)
+
         msg = OutgoingMessage()
         msg.write_string(key)
         writer(msg, value)

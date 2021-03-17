@@ -29,8 +29,8 @@ class Scheduler(ABC):
 
 
 class PiecewiseScheduler(Scheduler):
-    def __init__(self, parts, f=None):
-        super().__init__(f)
+    def __init__(self, parts, **kwargs):
+        super().__init__(**kwargs)
         assert parts[0][0] == 0
         parts.sort()
         self.steps_remaining = parts
@@ -50,8 +50,8 @@ class PiecewiseScheduler(Scheduler):
 
 
 class LinearScheduler(Scheduler):
-    def __init__(self, start, end, num_episodes, f=None):
-        super().__init__(f)
+    def __init__(self, start, end, num_episodes, **kwargs):
+        super().__init__(**kwargs)
         self.start = start
         self.end = end
         self.num_episodes = num_episodes
@@ -64,14 +64,13 @@ class LinearScheduler(Scheduler):
             return
 
         self.n += 1
-        a = self.n / self.num_episodes
-        val = (1-a)*self.start + a*self.end
+        val = ((self.num_episodes-self.n)*self.start + self.n*self.end) / self.num_episodes
         self.update(val)
 
 
 class ExponentialScheduler(Scheduler):
-    def __init__(self, initial_value, multiplier, min_value=None, max_value=None, f=None):
-        super().__init__(f)
+    def __init__(self, initial_value, multiplier, min_value=None, max_value=None, **kwargs):
+        super().__init__(**kwargs)
         self._value = initial_value
         self.multiplier = multiplier
         self.min_value = min_value
@@ -80,3 +79,19 @@ class ExponentialScheduler(Scheduler):
     def step(self):
         self._value = np.clip(self._value * self.multiplier, self.min_value, self.max_value)
         self.update(self._value)
+
+
+def find_schedulers(obj, base='', d=None):
+    if d is None:
+        d = {}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            full_key = f'{base}.{k}' if base else k
+            if isinstance(v, Scheduler):
+                d[full_key] = v
+            find_schedulers(v, base=full_key, d=d)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            find_schedulers(v, base=f'{base}[{i}]', d=d)
+
+    return d

@@ -19,8 +19,8 @@ def main():
                         help='Number of gpus to use (default: all gpus)')
     parser.add_argument("--batch_size", type=int, default=65_536,
                         help='Batch size, counted in agent steps (default: 65_536)')
-    parser.add_argument("--scheduler_step_frequency", type=int, default=None,
-                        help='Frequency with which to step the hyperparameter schedulers'
+    parser.add_argument("--scheduler_step_period", type=int, default=None,
+                        help='Period with which to step the hyperparameter schedulers'
                         '(default: batch_size)')
     parser.add_argument("--train_iters", type=int, default=128,
                         help='Number of training iterations to run (default: 128)')
@@ -48,8 +48,8 @@ def main():
         # use absolute path because rllib will change the cwd
         args.file_name = os.path.abspath(args.file_name)
 
-    if args.scheduler_step_frequency is None:
-        args.scheduler_step_frequency = args.batch_size
+    if args.scheduler_step_period is None:
+        args.scheduler_step_period = args.batch_size
 
     print('Running with:')
     for k, v in vars(args).items():
@@ -59,10 +59,15 @@ def main():
 
 
 def run_with_args(args):
+    import ray
     from ray import tune
     from physical_env import PhysicalEnv
     from callbacks import Callbacks
-    from schedulers import LinearScheduler, ExponentialScheduler
+    from schedulers import LinearScheduler
+    import actors
+
+    ray.init()
+    actors.init()
 
     num_envs = max(args.workers, 1)
 
@@ -71,7 +76,7 @@ def run_with_args(args):
         "env_config": {
             "file_name": args.file_name,
             "episode_horizon": float('inf'),
-            "scheduler_step_frequency": args.scheduler_step_frequency,
+            "scheduler_step_period": args.scheduler_step_period,
             "unity_config": {
                 "AgentCount": int(round(args.agents / num_envs)),
                 "AgentCheckpointTTL": 60,
@@ -109,7 +114,7 @@ def run_with_args(args):
         "explore": True,
         "exploration_config": {
             "type": "StochasticSampling",
-            "random_timesteps": args.scheduler_step_frequency,
+            "random_timesteps": args.scheduler_step_period,
         },
         "framework": args.framework,
         "no_done_at_end": True,

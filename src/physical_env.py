@@ -1,6 +1,7 @@
 from collections import defaultdict
 import numpy as np
 from gym import spaces
+import ray
 from ray import tune
 from ray.rllib.env.wrappers.unity3d_env import Unity3DEnv
 from ray.rllib.utils.annotations import override
@@ -9,23 +10,7 @@ from metrics_side_channel import MetricsSideChannel
 
 from mlagents_envs.environment import UnityEnvironment
 
-from schedulers import Scheduler
-
-
-def find_schedulers(obj, base=''):
-    d = {}
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            full_key = f'{base}.{k}' if base else k
-            if isinstance(v, Scheduler):
-                d[full_key] = v
-            else:
-                d.update(find_schedulers(v, base=full_key))
-    elif isinstance(obj, list):
-        for i, v in enumerate(obj):
-            d.update(find_schedulers(v, base=f'{base}[{i}]'))
-
-    return d
+from schedulers import Scheduler, find_schedulers
 
 
 class PhysicalEnv(Unity3DEnv):
@@ -37,7 +22,7 @@ class PhysicalEnv(Unity3DEnv):
 
     policy = (None, observation__space, action_space, {})
 
-    def __init__(self, *args, scheduler_step_frequency=1, unity_config={}, **kwargs):
+    def __init__(self, *args, scheduler_step_period=1, unity_config={}, **kwargs):
         self._config_side_channel = ConfigSideChannel(**unity_config)
         self._metrics_side_channel = MetricsSideChannel()
 
@@ -57,8 +42,9 @@ class PhysicalEnv(Unity3DEnv):
 
         self.schedulers = find_schedulers({'unity_config': unity_config})
         self.agent_count = unity_config['AgentCount']
-        self._agent_steps = 0
-        self._agent_steps_until_scheduler_step = scheduler_step_frequency * self.agent_count
+        self.scheduler_step_period = scheduler_step_period
+        self.total_agent_steps = 0
+        self._agent_steps_since_scheduler_step = 0
 
     def set_config(self, key, value):
         self._config_side_channel.set(key, value)
@@ -69,20 +55,26 @@ class PhysicalEnv(Unity3DEnv):
             self._metrics_side_channel.metrics.clear()
         return m
 
-    @override(Unity3DEnv)
-    def step(self, action_dict):
-        obs, rewards, dones, infos = super().step(action_dict)
+    def update_schedulers(self, agent_steps):
+        counter = ray.get_actor('step_counter')
+        new_total = ray.get(counter.add_agent_steps.remote(agent_steps))
+        self._agent_steps_since_scheduler_step += new_total - self.total_agent_steps
+        self.total_agent_steps = new_total
 
-        self._agent_steps += len(action_dict)
-        while self._agent_steps >= self._agent_steps_until_scheduler_step:
-            self._agent_steps -= self._agent_steps_until_scheduler_step
+        while self._agent_steps_since_scheduler_step >= self.scheduler_step_period:
+            self._agent_steps_since_scheduler_step -= self.scheduler_step_period
             for sch in self.schedulers.values():
                 sch.step()
 
+    @override(Unity3DEnv)
+    def step(self, action_dict):
+        obs, rewards, dones, infos = super().step(action_dict)
+        self.update_schedulers(len(action_dict))
         return obs, rewards, dones, infos
 
     @override(Unity3DEnv)
     def reset(self):
+        self.update_schedulers(self.agent_count)
         return super().reset()
 
 
