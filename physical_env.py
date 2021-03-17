@@ -2,7 +2,7 @@ from collections import defaultdict
 import numpy as np
 from gym import spaces
 from ray import tune
-from ray.rllib.env.unity3d_env import Unity3DEnv
+from ray.rllib.env.wrappers.unity3d_env import Unity3DEnv
 from ray.rllib.utils.annotations import override
 from config_side_channel import ConfigSideChannel
 from metrics_side_channel import MetricsSideChannel
