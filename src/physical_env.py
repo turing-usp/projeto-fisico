@@ -49,12 +49,6 @@ class PhysicalEnv(Unity3DEnv):
     def set_config(self, key, value):
         self._config_side_channel.set(key, value)
 
-    def get_metrics(self, reset=False):
-        m = self._metrics_side_channel.metrics.copy()
-        if reset:
-            self._metrics_side_channel.metrics.clear()
-        return m
-
     def update_schedulers(self, agent_steps):
         counter = ray.get_actor('step_counter')
         new_total = ray.get(counter.add_agent_steps.remote(agent_steps))

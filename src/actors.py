@@ -1,4 +1,5 @@
 import ray
+from collections import defaultdict
 
 
 _actors = []
@@ -9,6 +10,7 @@ def init():
     _actors.extend([
         StepCounter.options(name='step_counter').remote(),
         UnityConfigLogger.options(name='unity_config_logger').remote(),
+        AgentMetricTracker.options(name='agent_metric_tracker').remote(),
     ])
 
 
@@ -31,3 +33,18 @@ class UnityConfigLogger:
         if key not in self.configs or self.configs[key] != value:
             print(f'Setting {key}={value}')
             self.configs[key] = value
+
+
+@ray.remote
+class AgentMetricTracker:
+    def __init__(self):
+        self.metrics = defaultdict(list)
+
+    def add_metric(self, key, value):
+        self.metrics[key].append(value)
+
+    def get_metrics(self, reset=True):
+        metrics = self.metrics.copy()
+        if reset:
+            self.metrics.clear()
+        return metrics
