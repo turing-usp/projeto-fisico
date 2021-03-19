@@ -19,8 +19,8 @@ def main():
                         help='Number of environments')
     parser.add_argument("--gpus", type=int, default=None,
                         help='Number of gpus to use (default: all gpus)')
-    parser.add_argument("--batch_size", type=int, default=65_536,
-                        help='Batch size, counted in agent steps (default: 65_536)')
+    parser.add_argument("--batch_size", type=int, default=16_384,
+                        help='Batch size, counted in agent steps (default: 16_384)')
     parser.add_argument("--scheduler_step_period", type=int, default=None,
                         help='Period with which to step the hyperparameter schedulers'
                         '(default: batch_size)')
@@ -98,10 +98,10 @@ def run_with_args(args):
         "lr": 3e-4,
         "lambda": 0.95,
         "gamma": 0.995,
-        "sgd_minibatch_size": min(args.batch_size, 128),
+        "sgd_minibatch_size": min(args.batch_size, 512),
         "train_batch_size": args.batch_size,
         "num_gpus": args.gpus,
-        "num_sgd_iter": 30,
+        "num_sgd_iter": args.batch_size // min(args.batch_size, 512),
         "rollout_fragment_length": 200,
         "clip_param": 0.2,
         "entropy_coeff": 0.002,
