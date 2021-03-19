@@ -58,7 +58,7 @@ class PiecewiseScheduler(Scheduler):
             return
 
         self.n += 1
-        target_n, new_val = self.steps_remaining
+        target_n, new_val = self.steps_remaining[0]
         if self.n == target_n:
             self.update(new_val)
             self.steps_remaining.pop(0)
