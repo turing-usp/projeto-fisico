@@ -100,9 +100,9 @@ class ExponentialScheduler(Scheduler):
         self.max_value = max_value
 
     def step(self):
+        self._value = self._value * self.multiplier
         if self.min_value is not None or self.max_value is not None:
-            self._value = np.clip(self._value * self.multiplier,
-                                  self.min_value, self.max_value)
+            self._value = np.clip(self._value, self.min_value, self.max_value)
         self.update(self._value)
 
     def __repr__(self):
