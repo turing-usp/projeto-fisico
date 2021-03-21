@@ -8,19 +8,21 @@ _actors = []
 def init():
     # Store handles to the actors in order to keep them alive
     _actors.extend([
-        StepCounter.options(name='step_counter').remote(),
+        AgentStepCounter.options(name='agent_step_counter').remote(),
         UnityConfigLogger.options(name='unity_config_logger').remote(),
         AgentMetricTracker.options(name='agent_metric_tracker').remote(),
     ])
 
 
 @ray.remote
-class StepCounter:
+class AgentStepCounter:
     def __init__(self):
         self.total_agent_steps = 0
 
     def add_agent_steps(self, n):
         self.total_agent_steps += n
+
+    def get_steps(self):
         return self.total_agent_steps
 
 

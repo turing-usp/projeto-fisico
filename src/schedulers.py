@@ -36,7 +36,7 @@ class Scheduler(ABC):
         return self.__make_repr(*args, **kwargs)
 
     @abstractmethod
-    def step(self):
+    def step_to(self, n):
         pass
 
 
@@ -45,65 +45,57 @@ class PiecewiseScheduler(Scheduler):
         super().__init__(**kwargs)
         assert parts[0][0] == 0
         parts.sort()
-        self.parts = parts.copy()
-        self.steps_remaining = parts
+        self.parts = parts
+        self.current_part = 0
 
-        self.n = -1
-        self.step()
+        self.step_to(0)
 
         self._repr = f'PiecewiseScheduler(' + repr(self.parts) + ')'
 
-    def step(self):
-        if not self.steps_remaining:
-            return
-
-        self.n += 1
-        target_n, new_val = self.steps_remaining[0]
-        if self.n == target_n:
-            self.update(new_val)
-            self.steps_remaining.pop(0)
+    def step_to(self, n):
+        while n < self.parts[self.current_part][0]:
+            self.current_part -= 1
+        while self.current_part + 1 < len(self.parts) and self.parts[self.current_part+1][0] <= n:
+            self.current_part += 1
+        self.update(self.parts[self.current_part][1])
 
     def __repr__(self):
         return super().__repr__(self.parts)
 
 
 class LinearScheduler(Scheduler):
-    def __init__(self, start, end, num_episodes, **kwargs):
+    def __init__(self, start, end, agent_timesteps, **kwargs):
         super().__init__(**kwargs)
         self.start = start
         self.end = end
-        self.num_episodes = num_episodes
+        self.agent_timesteps = agent_timesteps
 
-        self.n = -1
-        self.step()
+        self.step_to(0)
 
-    def step(self):
-        if self.n >= self.num_episodes:
-            return
-
-        self.n += 1
-        val = ((self.num_episodes-self.n)*self.start +
-               self.n*self.end) / self.num_episodes
-        self.update(val)
+    def step_to(self, n):
+        if n >= self.agent_timesteps:
+            self.update(self.end)
+        else:
+            val = ((self.agent_timesteps-n)*self.start + n*self.end) / self.agent_timesteps
+            self.update(val)
 
     def __repr__(self):
-        return super().__repr__(self.start, self.end, self.num_episodes)
+        return super().__repr__(self.start, self.end, self.agent_timesteps)
 
 
 class ExponentialScheduler(Scheduler):
     def __init__(self, initial_value, multiplier, min_value=None, max_value=None, **kwargs):
         super().__init__(**kwargs)
-        self._value = initial_value
         self.initial_value = initial_value
         self.multiplier = multiplier
         self.min_value = min_value
         self.max_value = max_value
 
-    def step(self):
-        self._value = self._value * self.multiplier
+    def step_to(self, n):
+        val = self.initial_value * self.multiplier**n
         if self.min_value is not None or self.max_value is not None:
-            self._value = np.clip(self._value, self.min_value, self.max_value)
-        self.update(self._value)
+            val = np.clip(val, self.min_value, self.max_value)
+        self.update(val)
 
     def __repr__(self):
         kwargs = {}

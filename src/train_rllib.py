@@ -17,9 +17,6 @@ def main():
                         help='Number of workers to use (default: all cpus minus one)')
     parser.add_argument("--gpus", type=int, default=None,
                         help='Number of gpus to use (default: all gpus)')
-    parser.add_argument("--scheduler_step_period", type=int, default=None,
-                        help='Period with which to step the hyperparameter schedulers'
-                        '(default: batch_size)')
     parser.add_argument("--train_iters", type=int, default=128,
                         help='Number of training iterations to run (default: 128)')
     parser.add_argument("--time_scale", type=float, default=1000,
@@ -45,9 +42,6 @@ def main():
     if args.file_name is not None:
         # use absolute path because rllib will change the cwd
         args.file_name = os.path.abspath(args.file_name)
-
-    if args.scheduler_step_period is None:
-        args.scheduler_step_period = args.batch_size
 
     print('Running with:')
     for k, v in vars(args).items():
@@ -77,7 +71,6 @@ def run_with_args(args):
         "env_config": {
             "file_name": args.file_name,
             "episode_horizon": float('inf'),
-            "scheduler_step_period": args.scheduler_step_period,
             "unity_config": {
                 "AgentCount": agent_count_per_env,
                 "AgentCheckpointTTL": 60,
@@ -86,7 +79,7 @@ def run_with_args(args):
                 "ChunkTTL": 30,
                 "HazardCountPerChunk": 0,
                 "TimeScale": args.time_scale,
-                "AgentVelocityBonus_CoeffPerSecond": LinearScheduler(2, 0, num_episodes=20),
+                "AgentVelocityBonus_CoeffPerSecond": LinearScheduler(2, 0, agent_timesteps=300_000),
             },
         },
         "callbacks": Callbacks,
@@ -115,7 +108,6 @@ def run_with_args(args):
         "explore": True,
         "exploration_config": {
             "type": "StochasticSampling",
-            "random_timesteps": args.scheduler_step_period,
         },
         "framework": args.framework,
         "no_done_at_end": True,
