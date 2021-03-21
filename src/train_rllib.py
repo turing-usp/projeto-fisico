@@ -17,7 +17,7 @@ def main():
                         help='Number of workers to use (default: all cpus minus one)')
     parser.add_argument("--gpus", type=int, default=None,
                         help='Number of gpus to use (default: all gpus)')
-    parser.add_argument("--train_iters", type=int, default=128,
+    parser.add_argument("--max_train_iters", type=int, default=128,
                         help='Number of training iterations to run (default: 128)')
     parser.add_argument("--time_scale", type=float, default=1000,
                         help='How fast to run the game (default: 1000)')
@@ -135,7 +135,8 @@ def run_with_args(args):
     }
 
     stop = {
-        "training_iteration": args.train_iters,
+        "training_iteration": args.max_train_iters,
+        "custom_metrics/agent_checkpoints_mean": 50.0
     }
 
     # Run the experiment.
