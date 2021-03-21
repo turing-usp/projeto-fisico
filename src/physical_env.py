@@ -97,7 +97,7 @@ class PhysicalEnv(Unity3DEnv):
             self.set_phase(next_phase)
         else:
             for sch in self._schedulers:
-                sch.step()
+                sch.step_to(result['agent_steps_this_phase'])
 
     @override(Unity3DEnv)
     def step(self, action_dict):
