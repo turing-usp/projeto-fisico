@@ -12,8 +12,28 @@ from mlagents_envs.environment import UnityEnvironment
 from schedulers import Scheduler
 
 
+def flatten(obj, d=None, prefix=''):
+    if d is None:
+        d = {}
+    for key, val in obj.items():
+        full_key = prefix+key
+        if isinstance(val, dict):
+            flatten(val, d=d, prefix=full_key + '/')
+        else:
+            d[full_key] = val
+    return d
+
+
+def satisfies_constraint(flat_obj, key, min_value):
+    if key not in flat_obj:
+        print(f'Warning: missing constraint key "{key}" (in constraint {key} >= {min_value})')
+        return False
+    return flat_obj[key] >= min_value
+
+
 def satisfies_constraints(obj, constraints):
-    return all(key in obj and obj[key] >= min_value
+    flat_obj = flatten(obj)
+    return all(satisfies_constraint(flat_obj, key, min_value)
                for key, min_value in constraints.items())
 
 
