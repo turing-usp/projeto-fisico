@@ -41,6 +41,9 @@ class ConfigLogger:
             print(f'Setting {key}={value}')
             self.configs[key] = value
 
+    def get_latest_configs(self):
+        return self.configs
+
 
 @ray.remote
 class AgentMetricTracker:

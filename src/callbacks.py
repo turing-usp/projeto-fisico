@@ -7,11 +7,15 @@ from ray.rllib.agents.callbacks import DefaultCallbacks
 class Callbacks(DefaultCallbacks):
     def on_train_result(self, *, trainer, result, **kwargs) -> None:
         tracker = ray.get_actor('agent_metric_tracker')
+        logger = ray.get_actor('config_logger')
         counter = ray.get_actor('agent_step_counter')
-        new_metrics, (result['agent_steps_total'], result['agent_steps_this_phase']) = ray.get([
+        new_metrics, logged_config, (result['agent_steps_total'], result['agent_steps_this_phase']) = ray.get([
             tracker.get_metrics.remote(reset=True),
+            logger.get_latest_configs.remote(),
             counter.get_steps.remote(),
         ])
+
+        result['env'] = logged_config.copy()
 
         new_metrics.setdefault('agent_checkpoints', [])
         new_metrics.setdefault('agent_reward', [])
