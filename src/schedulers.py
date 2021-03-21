@@ -50,8 +50,6 @@ class PiecewiseScheduler(Scheduler):
 
         self.step_to(0)
 
-        self._repr = f'PiecewiseScheduler(' + repr(self.parts) + ')'
-
     def step_to(self, n):
         while n < self.parts[self.current_part][0]:
             self.current_part -= 1
@@ -90,6 +88,8 @@ class ExponentialScheduler(Scheduler):
         self.multiplier = multiplier
         self.min_value = min_value
         self.max_value = max_value
+
+        self.step_to(0)
 
     def step_to(self, n):
         val = self.initial_value * self.multiplier**n
