@@ -17,8 +17,8 @@ def main():
                         help='Number of workers to use (default: all cpus minus one)')
     parser.add_argument("--gpus", type=int, default=None,
                         help='Number of gpus to use (default: all gpus)')
-    parser.add_argument("--max_train_iters", type=int, default=128,
-                        help='Number of training iterations to run (default: 128)')
+    parser.add_argument("--max_train_iters", type=int, default=512,
+                        help='Number of training iterations to run (default: 512)')
     parser.add_argument("--time_scale", type=float, default=1000,
                         help='How fast to run the game (default: 1000)')
     parser.add_argument("--framework", type=str, choices=['torch', 'tf'], default='torch',
@@ -83,21 +83,30 @@ def run_with_args(args):
             },
             "curriculum": [
                 {
-                    "when": {"custom_metrics/agent_checkpoints_mean": 2.0},
+                    "when": {
+                        "custom_metrics/agent_checkpoints_mean": 2.0,
+                        "agent_steps_this_phase": 30_000,
+                    },
                     "unity_config": {
                         "ChunkDifficulty": 1,
                     }
                 },
                 {
-                    "when": {"custom_metrics/agent_checkpoints_mean": 2.0},
+                    "when": {
+                        "custom_metrics/agent_checkpoints_mean": 2.0,
+                        "agent_steps_this_phase": 30_000,
+                    },
                     "unity_config": {
                         "HazardCountPerChunk": 1,
                     }
                 },
                 {
-                    "when": {"custom_metrics/agent_checkpoints_mean": 2.0},
+                    "when": {
+                        "custom_metrics/agent_checkpoints_mean": 2.0,
+                        "agent_steps_this_phase": 30_000,
+                    },
                     "unity_config": {
-                        "AgentVelocityBonus_CoeffPerSecond": LinearScheduler(2, 0, agent_timesteps=300_000),
+                        "AgentVelocityBonus_CoeffPerSecond": LinearScheduler(2, 0, agent_timesteps=500_000),
                     }
                 },
             ]
@@ -107,8 +116,8 @@ def run_with_args(args):
         "lr": 3e-4,
         "lambda": 0.95,
         "gamma": 0.995,
-        "sgd_minibatch_size": 256,
-        "train_batch_size": 16_384,
+        "sgd_minibatch_size": 512,
+        "train_batch_size": 30_000,
         "num_gpus": args.gpus,
         "num_sgd_iter": 64,
         "rollout_fragment_length": 200,
@@ -120,10 +129,10 @@ def run_with_args(args):
             "count_steps_by": "agent_steps",
         },
         "model": {
-            "fcnet_hiddens": [128, 128],
+            "fcnet_hiddens": [512, 512],
             "fcnet_activation": "relu",
             "use_lstm": True,
-            "lstm_cell_size": 16,
+            "lstm_cell_size": 32,
         },
         "explore": True,
         "exploration_config": {
@@ -136,7 +145,7 @@ def run_with_args(args):
 
     stop = {
         "training_iteration": args.max_train_iters,
-        "custom_metrics/agent_checkpoints_mean": 50.0
+        "custom_metrics/agent_checkpoints_mean": 15.0
     }
 
     # Run the experiment.
