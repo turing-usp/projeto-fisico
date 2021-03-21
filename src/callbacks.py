@@ -13,13 +13,15 @@ class Callbacks(DefaultCallbacks):
             counter.get_steps.remote(),
         ])
 
+        new_metrics.setdefault('agent_checkpoints', [])
+        new_metrics.setdefault('agent_reward', [])
         hist = result['hist_stats']
         metrics = result['custom_metrics']
         for k, vs in new_metrics.items():
             hist.setdefault(k, []).extend(vs)
-            metrics[k + '_min'] = min(vs)
-            metrics[k + '_max'] = max(vs)
-            metrics[k + '_mean'] = np.mean(vs)
+            metrics[k + '_min'] = min(vs) if vs else np.nan
+            metrics[k + '_max'] = max(vs) if vs else np.nan
+            metrics[k + '_mean'] = np.mean(vs) if vs else np.nan
 
         trainer.workers.foreach_worker(
             lambda w: w.foreach_env(
