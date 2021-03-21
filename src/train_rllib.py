@@ -79,8 +79,28 @@ def run_with_args(args):
                 "ChunkTTL": 30,
                 "HazardCountPerChunk": 0,
                 "TimeScale": args.time_scale,
-                "AgentVelocityBonus_CoeffPerSecond": LinearScheduler(2, 0, agent_timesteps=300_000),
+                "AgentVelocityBonus_CoeffPerSecond": 2,
             },
+            "curriculum": [
+                {
+                    "when": {"custom_metrics/agent_checkpoints_mean": 2.0},
+                    "unity_config": {
+                        "ChunkDifficulty": 1,
+                    }
+                },
+                {
+                    "when": {"custom_metrics/agent_checkpoints_mean": 2.0},
+                    "unity_config": {
+                        "HazardCountPerChunk": 1,
+                    }
+                },
+                {
+                    "when": {"custom_metrics/agent_checkpoints_mean": 2.0},
+                    "unity_config": {
+                        "AgentVelocityBonus_CoeffPerSecond": LinearScheduler(2, 0, agent_timesteps=300_000),
+                    }
+                },
+            ]
         },
         "callbacks": Callbacks,
         "num_workers": args.workers,

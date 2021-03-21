@@ -104,19 +104,3 @@ class ExponentialScheduler(Scheduler):
         if self.max_value is not None:
             kwargs['max_value'] = self.max_value
         return super().__repr__(self.initial_value, self.multiplier, **kwargs)
-
-
-def find_schedulers(obj, base='', d=None):
-    if d is None:
-        d = {}
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            full_key = f'{base}.{k}' if base else k
-            if isinstance(v, Scheduler):
-                d[full_key] = v
-            find_schedulers(v, base=full_key, d=d)
-    elif isinstance(obj, list):
-        for i, v in enumerate(obj):
-            find_schedulers(v, base=f'{base}[{i}]', d=d)
-
-    return d

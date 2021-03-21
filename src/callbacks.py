@@ -8,7 +8,7 @@ class Callbacks(DefaultCallbacks):
     def on_train_result(self, *, trainer, result, **kwargs) -> None:
         tracker = ray.get_actor('agent_metric_tracker')
         counter = ray.get_actor('agent_step_counter')
-        new_metrics, result['agent_steps_total'] = ray.get([
+        new_metrics, (result['agent_steps_total'], result['agent_steps_this_phase']) = ray.get([
             tracker.get_metrics.remote(reset=True),
             counter.get_steps.remote(),
         ])
