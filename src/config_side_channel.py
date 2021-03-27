@@ -181,8 +181,8 @@ class ConfigSideChannel(SideChannel):
         self._scheduler_removers[key_lower] = lambda: ev.remove(h)
 
     def _set(self, writer, key, value):
-        logger = ray.get_actor('unity_config_logger')
-        logger.update.remote(key, value)
+        logger = ray.get_actor('config_logger')
+        logger.update.remote('unity_config/' + key, value)
 
         msg = OutgoingMessage()
         msg.write_string(key)
