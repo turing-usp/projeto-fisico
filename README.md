@@ -5,8 +5,8 @@ No PC do Turing:
 
 ```bash
 # Instala as bibliotecas necessárias
-apt get update
-apt get install cmake
+sudo apt update
+sudo apt install cmake
 pip install gym ray[rllib] mlagents==0.20 torch
 
 # Baixa o arquivo do jogo
