@@ -11,7 +11,7 @@ pip install gym ray[rllib] mlagents==0.20 torch
 
 # Baixa o arquivo do jogo
 pip install gdown
-gdown --id 10Ntd2KP4Sq8axx51QfEWMRAxjRz_js1H --output CarAgentRL.tar.gz
+gdown --id 1ZlUJ3vo5tRtHNyGVdh_p8CqBNelCnCEQ --output CarAgentRL.tar.gz
 tar xf CarAgentRL.tar.gz
 
 # Roda o treinamento
