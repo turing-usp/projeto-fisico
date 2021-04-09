@@ -46,6 +46,8 @@ def main():
     plt.figure(figsize=(6, 3*rows))
     for i, col in enumerate(args.columns):
         plt.subplot(rows, 1, i+1)
+        if i == 0:
+            plt.title(f'Plots from {args.experiment.name}\nRolling averages use window={args.window}')
         try:
             plot_col(args, col, df)
         except KeyError:
