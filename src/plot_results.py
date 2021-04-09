@@ -21,7 +21,7 @@ plt.rc('font', size=9)
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=lambda prog: argparse.MetavarTypeHelpFormatter(prog=prog, width=100))
-    parser.add_argument("experiment", type=Path,
+    parser.add_argument("experiment", type=Path, metavar="EXPERIMENT",
                         help='Experiment directory')
     parser.add_argument("--no-phase", action='store_true',
                         help='Do not plot the phase')
