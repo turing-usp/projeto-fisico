@@ -69,6 +69,7 @@ class PhysicalEnv(Unity3DEnv):
         self.unity_config = {}
         self._schedulers = []
         self.set_phase(-1, unity_config_updates=unity_config)
+        self._iters_satisfying_curriculum = 0
 
     def set_phase(self, phase, unity_config_updates=None):
         self.phase = phase
@@ -92,12 +93,19 @@ class PhysicalEnv(Unity3DEnv):
 
     def on_train_result(self, result):
         next_phase = self.phase+1
-        if next_phase < len(self.curriculum) and \
-                satisfies_constraints(result, self.curriculum[next_phase]['when']):
-            self.set_phase(next_phase)
-        else:
-            for sch in self._schedulers:
-                sch.step_to(result['agent_steps_this_phase'])
+        if next_phase < len(self.curriculum):
+            if satisfies_constraints(result, self.curriculum[next_phase]['when']):
+                self._iters_satisfying_curriculum += 1
+            else:
+                self._iters_satisfying_curriculum = 0
+
+            min_iters = self.curriculum[next_phase].get('for_iterations', 1)
+            if self._iters_satisfying_curriculum >= min_iters:
+                self.set_phase(next_phase)
+                return
+
+        for sch in self._schedulers:
+            sch.step_to(result['agent_steps_this_phase'])
 
     @override(Unity3DEnv)
     def step(self, action_dict):
