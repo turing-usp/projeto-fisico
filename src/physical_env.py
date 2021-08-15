@@ -39,13 +39,6 @@ def satisfies_constraints(obj, constraints):
 
 class PhysicalEnv(Unity3DEnv):
 
-    observation__space = spaces.Box(float("-inf"), float("inf"),
-                                    (14,), dtype=np.float32)
-
-    action_space = spaces.Box(-1, 1, (3,), dtype=np.float32)
-
-    policy = (None, observation__space, action_space, {})
-
     def __init__(self, *args, unity_config={}, curriculum=[], **kwargs):
         self._config_side_channel = ConfigSideChannel()
         self._metrics_side_channel = MetricsSideChannel()
@@ -135,6 +128,22 @@ class PhysicalEnv(Unity3DEnv):
     def reset(self):
         obs = super().reset()
         return self.transform_observations(obs)
+
+    @staticmethod
+    def get_observation_space(env_config):
+        rays_per_direction = env_config.get('unity_config', {}).get('AgentRaysPerDirection', 3)
+        rays = 2*rays_per_direction + 1
+        return spaces.Box(0, 1, (rays,), dtype=np.float32)
+
+    @staticmethod
+    def get_action_space(env_config):
+        return spaces.Box(-1, 1, (3,), dtype=np.float32)
+
+    @staticmethod
+    def get_policy(env_config):
+        obs_space = PhysicalEnv.get_observation_space(env_config)
+        action_space = PhysicalEnv.get_action_space(env_config)
+        return (None, obs_space, action_space, {})
 
 
 tune.register_env(

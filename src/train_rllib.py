@@ -144,7 +144,7 @@ def run_with_args(args):
         "rollout_fragment_length": 100,
         "num_gpus": args.gpus,
         "multiagent": {
-            "policies": {"fisico": PhysicalEnv.policy},
+            "policies": {"fisico": PhysicalEnv.get_policy(env_config)},
             "policy_mapping_fn": lambda agent_id: "fisico",
             "count_steps_by": "agent_steps",
         },
