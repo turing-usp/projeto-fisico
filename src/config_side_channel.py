@@ -109,12 +109,12 @@ FIELDS = {
     # Minimum hazard speed
     # Takes effect: on chunk creation
     # Default: 1
-    'HazardMinSpeed': int,
+    'HazardMinSpeed': float,
 
     # Maximum hazard speed
     # Takes effect: on chunk creation
     # Default: 10
-    'HazardMaxSpeed': int,
+    'HazardMaxSpeed': float,
 
 
     ###############################
