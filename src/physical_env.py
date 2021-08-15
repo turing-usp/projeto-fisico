@@ -107,12 +107,34 @@ class PhysicalEnv(Unity3DEnv):
         for sch in self._schedulers:
             sch.step_to(result['agent_steps_this_phase'])
 
+    def transform_actions(self, actions):
+        return actions
+
+    def transform_observations(self, obs):
+        # Even indices indicate whether the ray hit something
+        # Odd indices indicate the normalized distance for each ray (or the amx if no object has hit)
+        # Keep only the odd indices
+        return {agent_id: s[1::2] for agent_id, s in obs.items()}
+
+    def transform_rewards(self, rewards):
+        return rewards
+
     @override(Unity3DEnv)
     def step(self, action_dict):
+        action_dict = self.transform_actions(action_dict)
         obs, rewards, dones, infos = super().step(action_dict)
+        obs = self.transform_observations(obs)
+        rewards = self.transform_rewards(rewards)
+
         counter = ray.get_actor('agent_step_counter')
         counter.add_agent_steps.remote(len(action_dict))
+
         return obs, rewards, dones, infos
+
+    @override(Unity3DEnv)
+    def reset(self):
+        obs = super().reset()
+        return self.transform_observations(obs)
 
 
 tune.register_env(
