@@ -1,21 +1,48 @@
 #!/usr/bin/env python
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 from pathlib import Path
+import json
+import hashlib
 
 PROGRESS_FILE = 'progress.csv'
+
 DEFAULT_COLUMNS = [
     'custom_metrics/agent_checkpoints_mean',
-    'custom_metrics/agent_checkpoints',
-    'custom_metrics/agent_reward',
-    'time_this_iter_s',
-    'timers/sample_time_ms,timers/learn_time_ms,timers/update_time_ms',
+    ','.join([
+        'hist_stats/agent_checkpoints',
+        'custom_metrics/agent_checkpoints',
+    ]),
+    ','.join([
+        'hist_stats/agent_reward',
+        'custom_metrics/agent_reward',
+    ]),
+    ','.join([
+        'env/unity_config/AgentVelocityBonus_CoeffPerSecond',
+        'env/unity_config/HazardCountPerChunk',
+        'env/unity_config/ChunkDifficulty',
+        'env/unity_config/HazardMaxSpeed',
+        'env/unity_config/HazardMinSpeed',
+    ]),
+    'agent_steps_this_phase',
+    'info/learner/fisico/entropy',
+    ','.join([
+        'info/learner/fisico/vf_loss',
+        'info/learner/fisico/policy_loss',
+        'info/learner/fisico/total_loss',
+    ]),
 ]
+
+HIST_SIZE_PER_STEP = 64
+HIST_MARKER_SIZE = 8
 
 CM = plt.cm.get_cmap('tab10')
 plt.rc('font', size=9)
+plt.rc('legend', fontsize=7)
+
 
 
 def main():
@@ -25,6 +52,8 @@ def main():
                         help='Experiment directory')
     parser.add_argument("--no-phase", action='store_true',
                         help='Do not plot the phase')
+    parser.add_argument("--no-noise", action='store_true',
+                        help='Do not not add noise in hist_stats plots')
     parser.add_argument("--window", "-w", type=int, default=10,
                         help="The window size for the rolling averages (default: 10)")
     parser.add_argument("--dpi", type=int, default=120,
@@ -43,53 +72,80 @@ def main():
 
     df = pd.read_csv(args.experiment / PROGRESS_FILE)
     rows = len(args.columns)
-    plt.figure(figsize=(6, 3*rows))
-    for i, col in enumerate(args.columns):
+    plt.figure(figsize=(6, 1+3*rows))
+    for i, cols in enumerate(args.columns):
         plt.subplot(rows, 1, i+1)
         if i == 0:
-            plt.title(f'Plots from {args.experiment.name}\nRolling averages use window={args.window}')
+            plt.suptitle(args.experiment.name, fontsize=12)
+            train_iters = df["training_iteration"].iloc[-1]
+            total_time = df["time_total_s"].iloc[-1]
+            plt.title(f'\n\n{train_iters} iterations    {total_time:.1f} seconds    {total_time/train_iters:.1f} $\pm$ {np.std(df["time_this_iter_s"]):.1f} seconds/iteration\n'
+                      f'rolling average exponential window with size {args.window}\n')
         try:
-            plot_col(args, col, df)
+            plot_cols(args, cols, df)
         except KeyError:
-            print('Invalid column:', col)
+            print('Invalid column(s):', cols)
             return
 
     plt.tight_layout()
     plt.savefig((args.experiment / PROGRESS_FILE).with_suffix('.png'), dpi=args.dpi)
 
 
-def plot_col(args, col, df):
-    if ',' in col:
-        for j, col in enumerate(col.split(',')):
-            plot_series(df[col.strip()], c=CM(j), window=args.window)
-    elif col in df.columns:
-        plot_series(df[col], c=CM(0), window=args.window)
-        plt.ylabel(col)
-    else:
-        for j, typ in enumerate(['max', 'mean', 'min']):
-            plot_series(df[col + '_' + typ], label=typ, c=CM(j), window=args.window)
-        plt.ylabel(col)
+def plot_cols(args, cols, df):
+    i = 0
+    for col in cols.split(','):
+        col = col.strip()
+        if col in df.columns:
+            plot_series(df[col], c=CM(i), window=args.window, add_noise=not args.no_noise)
+            i += 1
+        else:
+            for typ in 'max', 'mean', 'min':
+                plot_series(df[col + '_' + typ], c=CM(i), window=args.window, add_noise=not args.no_noise)
+                i += 1
 
-    plt.legend()
     plt.xlabel('training iteration')
     plt.grid()
+    
+    if args.no_phase:
+        plt.legend()
+    else:
+        ax = plt.gca()
+        handles, labels = ax.get_legend_handles_labels()
+        
+        twin_ax = plt.twinx()
+        df['env/phase'].plot(c=(.5,0,1), ls='--', dashes=(4,3.5))
+        plt.ylabel('env/phase')
+        plt.yticks(range(-1, df['env/phase'].iloc[-1] + 1))
+        
+        twin_handles, twin_labels = twin_ax.get_legend_handles_labels()
+        
+        leg = ax.legend(handles + twin_handles, labels + twin_labels)
 
-    if not args.no_phase:
-        plot_phase(df)
+
+def plot_series(s, *, c, window, add_noise):
+    if s.name.startswith('hist_stats/'):
+        np.random.seed(int(hashlib.md5(s.name.encode()).hexdigest()[:8], base=16))
+        x = []
+        y = []
+        for i, raw_vals in enumerate(s):
+            vals = np.random.choice(json.loads(raw_vals), size=HIST_SIZE_PER_STEP, replace=True)
+            x.extend(np.random.uniform(i-.5, i+.5, size=len(vals)))
+            y.extend(vals)
+        if add_noise:
+            y += .015 * (max(y) - min(y)) * np.random.uniform(-1, 1, size=len(y))
+        
+        scatter = plt.scatter(x, y, color=lighten(c, .1), alpha=min(.5, 1000/len(x)/HIST_MARKER_SIZE), s=HIST_MARKER_SIZE)
+        plt.scatter([], [], color=c, s=4, label=s.name)
+    elif s.name.startswith('custom_metrics/') or s.name.startswith('info/learner/'):
+        plt.plot(s, c=c, alpha=.5, lw=1)
+        plt.plot(s.rolling(window, min_periods=1).mean(), label=s.name, c=c)
+    else:
+        plt.plot(s, label=s.name, c=c)
 
 
-def plot_series(s, *, label=None, c, window):
-    if label is None:
-        label = s.name
-    plt.plot(s, c=c, alpha=.5, lw=1)
-    plt.plot(s.rolling(window, min_periods=1).mean(), label=label, c=c)
-
-
-def plot_phase(df):
-    plt.twinx()
-    df['env/phase'].plot(c=CM(3), lw=1)
-    plt.ylabel('env/phase')
-    plt.yticks(range(-1, df['env/phase'].iloc[-1] + 1))
+def lighten(color, amount):
+    white = (1, 1, 1, color[3])  # preserve the alpha value
+    return tuple(w*amount + c*(1-amount) for w, c in zip(white, color))
 
 
 if __name__ == '__main__':

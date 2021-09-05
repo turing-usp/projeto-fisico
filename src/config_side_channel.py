@@ -34,6 +34,13 @@ FIELDS = {
     # Takes effect: immediately
     # Default: 60
     'AgentCheckpointTTL': float,
+    
+    # Maximum number of checkpoints.
+    # When an agent reaches this number of checkpoints, it is automatically reset.
+    # If zero, no maximum is enforced.
+    # Takes effect: on agent checkpoint
+    # Default: 0
+    'AgentCheckpointMax': int,
 
     # Configuration for the velocity reward bonus.
     # Given the forward velocity magnitude |v|, the checkpoint reward is
