@@ -48,7 +48,7 @@ Executando o seguinte comando, abrirá o tensorboard com esses 4 experimentos:
 tensorboard --log-dir=results-19
 ```
 
-![tensorboard](images/tensorboard.png)
+![tensorboard](images/tensorboard.PNG)
 
 Podemos observar 4 cores diferentes nas curvas de cada gráfico, indicando os 4 experimentos distintos realizados.
 
