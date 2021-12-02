@@ -4,14 +4,14 @@ import ray
 from ray.rllib.agents.callbacks import DefaultCallbacks
 
 
-class Callbacks(DefaultCallbacks):
+class CarEnvCallbacks(DefaultCallbacks):
     def on_train_result(self, *, trainer, result, **kwargs) -> None:
         tracker = ray.get_actor('agent_metric_tracker')
-        logger = ray.get_actor('config_logger')
+        logger = ray.get_actor('param_logger')
         counter = ray.get_actor('agent_step_counter')
         new_metrics, logged_config, (result['agent_steps_total'], result['agent_steps_this_phase']) = ray.get([
             tracker.get_metrics.remote(reset=True),
-            logger.get_latest_configs.remote(),
+            logger.get_params.remote(),
             counter.get_steps.remote(),
         ])
 
@@ -29,4 +29,4 @@ class Callbacks(DefaultCallbacks):
 
         trainer.workers.foreach_worker(
             lambda w: w.foreach_env(
-                lambda env: env.on_train_result(result)))
+                lambda env: env._on_train_result(result)))

@@ -9,7 +9,7 @@ def init():
     # Store handles to the actors in order to keep them alive
     _actors.extend([
         AgentStepCounter.options(name='agent_step_counter').remote(),
-        ConfigLogger.options(name='config_logger').remote(),
+        ParamLogger.options(name='param_logger').remote(),
         AgentMetricTracker.options(name='agent_metric_tracker').remote(),
     ])
 
@@ -32,16 +32,16 @@ class AgentStepCounter:
 
 
 @ray.remote
-class ConfigLogger:
+class ParamLogger:
     def __init__(self):
         self.configs = {}
 
-    def update(self, key, value):
+    def update_param(self, key, value):
         if key not in self.configs or self.configs[key] != value:
             print(f'Setting {key}={value}')
             self.configs[key] = value
 
-    def get_latest_configs(self):
+    def get_params(self):
         return self.configs
 
 

@@ -1,7 +1,8 @@
-from schedulers import Scheduler
 from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
 import uuid
 import ray
+
+from .schedulers import Scheduler
 
 FIELDS = {
     #######################
@@ -34,7 +35,7 @@ FIELDS = {
     # Takes effect: immediately
     # Default: 60
     'AgentCheckpointTTL': float,
-    
+
     # Maximum number of checkpoints.
     # When an agent reaches this number of checkpoints, it is automatically reset.
     # If zero, no maximum is enforced.
@@ -203,8 +204,8 @@ class ConfigSideChannel(SideChannel):
         self._scheduler_removers[key_lower] = lambda: ev.remove(h)
 
     def _set(self, writer, key, value):
-        logger = ray.get_actor('config_logger')
-        logger.update.remote('unity_config/' + key, value)
+        logger = ray.get_actor('param_logger')
+        logger.update_param.remote('unity_config/' + key, value)
 
         msg = OutgoingMessage()
         msg.write_string(key)

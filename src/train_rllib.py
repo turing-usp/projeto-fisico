@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 
 import argparse
+from typing import Literal, Optional
+
+
+class Args(argparse.Namespace):
+    file_name: Optional[str]
+    log_level: str
+    agents: int
+    workers: int
+    gpus: int
+    max_train_iters: int
+    time_scale: float
+    framework: Literal['torch', 'tf']
 
 
 def main():
@@ -23,7 +35,7 @@ def main():
                         help='How fast to run the game (default: 1000)')
     parser.add_argument("--framework", type=str, choices=['torch', 'tf'], default='torch',
                         help='Use torch instead of tensorflow (default: torch)')
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=Args())
 
     import os
 
@@ -43,23 +55,17 @@ def main():
         # use absolute path because rllib will change the cwd
         args.file_name = os.path.abspath(args.file_name)
 
-    print('Running with:')
-    for k, v in vars(args).items():
-        print('  ', k, '=', v)
-
     run_with_args(args)
 
 
-def run_with_args(args):
+def run_with_args(args: Args):
     import ray
     from ray import tune
-    from physical_env import PhysicalEnv
-    from callbacks import Callbacks
-    from schedulers import LinearScheduler
-    import actors
+
+    from car_env import CarEnv, LinearScheduler, CarEnvCallbacks, init as init_car_env
 
     ray.init()
-    actors.init()
+    init_car_env()
 
     num_envs = max(args.workers, 1)
     agent_count_per_env = int(round(args.agents / num_envs))
@@ -69,72 +75,87 @@ def run_with_args(args):
     min_steps_per_phase = 250_000
     for_iterations = 10
 
-    env_config = {
-        "file_name": args.file_name,
-        "episode_horizon": float('inf'),
-        "unity_config": {
-            "AgentCount": agent_count_per_env,
-            "AgentCheckpointTTL": 60,
-            "AgentDecisionPeriod": 10,
-            "ChunkMinAgentsBeforeDestruction": 1,
-            "ChunkTTL": 30,
-            "TimeScale": args.time_scale,
-            "AgentCheckpointReward_VelocityForMaxReward": 1,
-            "AgentRaysPerDirection": 7,
-            "AgentRayLength": 128,
-
-            "AgentCheckpointMax": 15,
-            "ChunkDelayBeforeDestruction": 60,
-            "AgentVelocityBonus_MaxVelocity": 1,
-            "AgentVelocityBonus_CoeffPerSecond": 2,
-            "ChunkDifficulty": 0,
-            "HazardCountPerChunk": 0,
-            "HazardMinSpeed": 0,
-            "HazardMaxSpeed": 0,
-        },
-        "curriculum": [
-            {
-                "when": {
-                    "custom_metrics/agent_checkpoints_mean": 5,
-                    "agent_steps_this_phase": min_steps_per_phase,
-                },
-                "for_iterations": for_iterations,
-                "unity_config": {
-                    "HazardCountPerChunk": 1,
-                },
-            },
-            {
-                "when": {
-                    "custom_metrics/agent_checkpoints_mean": 5,
-                    "agent_steps_this_phase": min_steps_per_phase,
-                },
-                "for_iterations": for_iterations,
-                "unity_config": {
-                    "AgentVelocityBonus_CoeffPerSecond": 0,
-                    "HazardMinSpeed": LinearScheduler(0, 10, 1_500_000),
-                    "HazardMaxSpeed": LinearScheduler(0, 10, 1_500_000),
-                },
-            },
-            {
-                "when": {
-                    "custom_metrics/agent_checkpoints_mean": 5,
-                    "agent_steps_this_phase": min_steps_per_phase,
-                },
-                "for_iterations": for_iterations,
-                "unity_config": {
-                    "HazardMinSpeed": 0,
-                    "HazardMaxSpeed": 10,
-                    "ChunkDifficulty": 1,
-                },
-            },
-        ]
-    }
-
     config = {
-        "env": "fisico",
-        "env_config": env_config,
-        "callbacks": Callbacks,
+        # === General settings ===
+        "env": "car_env",
+        "callbacks": CarEnvCallbacks,
         "num_workers": args.workers,
+        "num_gpus": args.gpus,
+        "framework": args.framework,
+        "no_done_at_end": True,
+        "log_level": args.log_level,
+
+        # === Environment settings (curriculum) ===
+        "env_config": {
+            "file_name": args.file_name,
+            "curriculum": [
+                {  # Phase 0 (initial settings)
+                    "unity_config": {
+                        "AgentCount": agent_count_per_env,
+                        "AgentCheckpointTTL": 60,
+                        "AgentDecisionPeriod": 10,
+                        "ChunkMinAgentsBeforeDestruction": 1,
+                        "ChunkTTL": 30,
+                        "TimeScale": args.time_scale,
+                        "AgentCheckpointReward_VelocityForMaxReward": 1,
+                        "AgentRaysPerDirection": 7,
+                        "AgentRayLength": 128,
+                        "AgentCheckpointMax": 15,
+                        "ChunkDelayBeforeDestruction": 60,
+                        "AgentVelocityBonus_MaxVelocity": 1,
+                        "AgentVelocityBonus_CoeffPerSecond": 2,
+                        "ChunkDifficulty": 0,
+                        "HazardCountPerChunk": 0,
+                        "HazardMinSpeed": 0,
+                        "HazardMaxSpeed": 0,
+                    },
+                },
+                {  # Phase 1
+                    "when": {
+                        "custom_metrics/agent_checkpoints_mean": 5,
+                        "agent_steps_this_phase": min_steps_per_phase,
+                    },
+                    "for_iterations": for_iterations,
+                    "unity_config": {
+                        "HazardCountPerChunk": 1,
+                    },
+                },
+                {  # Phase 2
+                    "when": {
+                        "custom_metrics/agent_checkpoints_mean": 5,
+                        "agent_steps_this_phase": min_steps_per_phase,
+                    },
+                    "for_iterations": for_iterations,
+                    "unity_config": {
+                        "AgentVelocityBonus_CoeffPerSecond": 0,
+                        "HazardMinSpeed": LinearScheduler(0, 10, 1_500_000),
+                        "HazardMaxSpeed": LinearScheduler(0, 10, 1_500_000),
+                    },
+                },
+                {  # Phase 3
+                    "when": {
+                        "custom_metrics/agent_checkpoints_mean": 5,
+                        "agent_steps_this_phase": min_steps_per_phase,
+                    },
+                    "for_iterations": for_iterations,
+                    "unity_config": {
+                        "HazardMinSpeed": 0,
+                        "HazardMaxSpeed": 10,
+                        "ChunkDifficulty": 1,
+                    },
+                },
+            ],
+        },
+
+        # === Model ===
+        "model": {
+            "fcnet_hiddens": [512, 512],
+            "fcnet_activation": "relu",
+            "use_lstm": True,
+            "lstm_cell_size": 512,
+        },
+
+        # === Training settings ===
         "gamma": 0.999,
         "lr": 1e-4,
         "lambda": 0.98,
@@ -142,31 +163,24 @@ def run_with_args(args):
         "sgd_minibatch_size": 512,
         "num_sgd_iter": 30,
         "rollout_fragment_length": 100,
-        "num_gpus": args.gpus,
-        "multiagent": {
-            "policies": {"fisico": PhysicalEnv.get_policy(env_config)},
-            "policy_mapping_fn": lambda agent_id: "fisico",
-            "count_steps_by": "agent_steps",
-        },
-        "model": {
-            "fcnet_hiddens": [512, 512],
-            "fcnet_activation": "relu",
-            "use_lstm": True,
-            "lstm_cell_size": 512,
-        },
-        "framework": args.framework,
-        "no_done_at_end": True,
-        "log_level": args.log_level,
     }
 
+    # === Multiagent settings ===
+    config["multiagent"] = {
+        "policies": {"car_agent": CarEnv.get_policy(config["env_config"]["curriculum"])},
+        "policy_mapping_fn": lambda agent_id: "car_agent",
+        "count_steps_by": "agent_steps",
+    }
+
+    # === Stopping criteria (stops when any of the criteria are met) ===
     stop = {
         "training_iteration": args.max_train_iters,
         "custom_metrics/agent_checkpoints_mean": 9,
         "custom_metrics/agent_checkpoints_min": 5.0,
     }
 
-    # Run the experiment.
-    results = tune.run(
+    # === Run the training ===
+    tune.run(
         "PPO",
         config=config,
         stop=stop,
