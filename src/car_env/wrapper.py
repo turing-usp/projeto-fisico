@@ -1,8 +1,10 @@
 from __future__ import annotations
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
+import inspect
 import gym
+from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.utils.typing import AgentID
 
 
@@ -13,15 +15,14 @@ if TYPE_CHECKING:
 Wrappable = Union['CarEnv', 'Wrapper']
 
 
-class Wrapper:
+class Wrapper(MultiAgentEnv):
     env: Wrappable
 
     def __init__(self, env: Wrappable) -> None:
         self.env = env
+        self.unwrapped.wrappers.append(self)
 
     def __getattr__(self, name: str) -> Any:
-        if name.startswith("_"):
-            raise AttributeError(f"attempted to get missing private attribute '{name}'")
         return getattr(self.env, name)
 
     @property
@@ -38,6 +39,16 @@ class Wrapper:
     def reset(self) -> Dict[AgentID, FloatNDArray]:
         return self.env.reset()
 
+    def set_param(self, key: str, val: Any) -> bool:
+        init_sig = inspect.signature(self.__class__.__init__)
+        if key in init_sig.parameters:
+            if not hasattr(self, key):
+                raise RuntimeError(f"Object {self} has a parameter {key} but no attribute {key}")
+            setattr(self, key, val)
+            return True
+        else:
+            return False
+
     @staticmethod
     def get_observation_space(curriculum: Curriculum, source_space: gym.Space) -> gym.Space:
         return source_space
@@ -45,6 +56,10 @@ class Wrapper:
     @staticmethod
     def get_action_space(curriculum: Curriculum, source_space: gym.Space) -> gym.Space:
         return source_space
+
+    def with_agent_groups(self, groups: Dict[str, List[AgentID]], obs_space: gym.Space = None,
+                          act_space: gym.Space = None) -> "MultiAgentEnv":
+        return self.unwrapped.with_agent_groups(groups, obs_space, act_space)
 
 
 class ObservtionWrapper(Wrapper):

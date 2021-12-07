@@ -15,7 +15,7 @@ from ray.rllib.utils.typing import AgentID
 from .config_side_channel import ConfigSideChannel
 from .metrics_side_channel import MetricsSideChannel
 from .schedulers import Scheduler
-from .wrapper import Wrapper
+from .wrapper import Wrappable, Wrapper
 
 
 def flatten(obj: dict, d: Dict[str, Any] = None, prefix: str = '') -> Dict[str, Any]:
@@ -78,7 +78,7 @@ Curriculum = List[CurriculumPhase]
 
 class EnvConfig(TypedDict, total=False):
     file_name: Optional[str]
-    wrapper_types: Dict[str, Type[Wrapper]]
+    wrappers: List[Type[Wrapper]]
     curriculum: Curriculum
 
 
@@ -89,16 +89,15 @@ class CarEnv(Unity3DEnv):
     curriculum: Curriculum
 
     unity_config: UnityConfig
-    wrappers: Dict[Type[Wrapper], Wrapper]
-    wrapper_types: Dict[str, Type[Wrapper]]
     last_actions: Dict[AgentID, FloatNDArray]
     _schedulers: List[Scheduler]
     _iters_satisfying_curriculum: int
 
+    wrappers: List[Wrapper]
+
     def __init__(self,
                  *args,
                  file_name: str = None,
-                 wrapper_types: Dict[str, Type[Wrapper]] = {},
                  curriculum: Curriculum = [],
                  **kwargs) -> None:
 
@@ -126,12 +125,11 @@ class CarEnv(Unity3DEnv):
         self.curriculum = curriculum
 
         self.unity_config = {}
-        self.wrappers = {}
-        self.wrapper_types = wrapper_types
         self.last_actions = {}
         self._schedulers = []
-        self.set_curriculum_phase(0)
         self._iters_satisfying_curriculum = 0
+
+        self.wrappers = []
 
     @property
     def unwrapped(self) -> CarEnv:
@@ -155,21 +153,15 @@ class CarEnv(Unity3DEnv):
             self._config_side_channel.set(k, v)
 
         for wrapper_name, wrapper_params in self.curriculum[phase].get('wrappers', {}).items():
-            wrapper_type = self.wrapper_types.get(wrapper_name, None)
-            if wrapper_type is None:
-                raise ValueError(f'Invalid wrapper type: "{wrapper_name}"')
-
-            if wrapper_type in self.wrappers:
-                wrapper = self.wrappers[wrapper_type]
-                for param, val in wrapper_params.items():
-                    if not hasattr(wrapper, param):
-                        raise ValueError(f"Invalid param {param} for {wrapper_type}")
-                    setattr(wrapper, param, val)
-            else:
-                self.wrappers[wrapper_type] = wrapper_type(self, **wrapper_params)
-
             for param, val in wrapper_params.items():
-                logger.update_param.remote(f'{wrapper_type.__name__}/{param}', val)
+                success = False
+                for w in self.wrappers:
+                    if w.set_param(param, val):
+                        success = True
+                        break
+                if not success:
+                    raise RuntimeError(f"Parameter {param} not found in any of the wrappers")
+                logger.update_param.remote(f'{wrapper_name}/{param}', val)
 
     def _on_train_result(self, result: dict) -> None:
         next_phase = self.phase+1
@@ -205,6 +197,10 @@ class CarEnv(Unity3DEnv):
 
     @override(Unity3DEnv)
     def reset(self) -> Dict[AgentID, FloatNDArray]:
+        if not self.last_actions:
+            # first iteration => initialize the curriculum
+            self.set_curriculum_phase(0)
+
         raw_obs = super().reset()
         return self._get_obs(raw_obs)
 
@@ -257,10 +253,14 @@ class CarEnv(Unity3DEnv):
         }
 
 
-def create_env(config: EnvConfig) -> CarEnv:
+def create_env(config: EnvConfig) -> Wrappable:
+    config = config.copy()
+    wrappers = config.pop('wrappers', [])
+
     env = CarEnv(**config)
-    for wrapper in config.get('wrappers', []):
-        env = wrapper(env)
+    wrapper_configs = config.get('curriculum', [{}])[0].get('wrappers', {})
+    for wrapper_type in wrappers:
+        env = wrapper_type(env, **wrapper_configs.get(wrapper_type.__name__, {}))
     return env
 
 

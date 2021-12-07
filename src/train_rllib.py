@@ -91,12 +91,12 @@ def run_with_args(args: Args):
         # === Environment settings (curriculum) ===
         "env_config": EnvConfig(
             file_name=args.file_name,
-            wrapper_types={
-                "CheckpointReward": wrappers.CheckpointReward,
-                "VelocityReward": wrappers.VelocityReward,
-                "DeathPenalty": wrappers.DeathPenalty,
-                "BrakePenalty": wrappers.BrakePenalty,
-            },
+            wrappers=[
+                wrappers.CheckpointReward,
+                wrappers.VelocityReward,
+                wrappers.DeathPenalty,
+                wrappers.BrakePenalty,
+            ],
             curriculum=[
                 {  # Phase 0 (initial settings)
                     "unity_config": {
