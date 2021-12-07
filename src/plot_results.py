@@ -1,14 +1,20 @@
 #!/usr/bin/env python
 
+### Modules #############################################################
 from typing import List
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
 import argparse
-from pathlib import Path
 import json
 import hashlib
 
+from pathlib import Path
+from scipy.signal import filtfilt
+
+
+### Params set ##########################################################
 PROGRESS_FILE = 'progress.csv'
 
 DEFAULT_COLUMNS = [
@@ -44,6 +50,8 @@ plt.rc('font', size=9)
 plt.rc('legend', fontsize=7)
 
 
+### Functions ###########################################################
+
 class Args(argparse.Namespace):
     experiment: Path
     no_phase: bool
@@ -55,6 +63,8 @@ class Args(argparse.Namespace):
 
 
 def main():
+
+    # Parser
     parser = argparse.ArgumentParser(
         formatter_class=lambda prog: argparse.MetavarTypeHelpFormatter(prog=prog, width=100))
     parser.add_argument("experiment", type=Path, metavar="EXPERIMENT",
@@ -79,10 +89,15 @@ def main():
     if not args.no_default_columns:
         args.columns = DEFAULT_COLUMNS + [c for c in args.columns if c not in DEFAULT_COLUMNS]
 
+    # Import data
     df = pd.read_csv(args.experiment / PROGRESS_FILE)
     df.columns = [col.lower() for col in df.columns]
     rows = len(args.columns)
-    plt.figure(figsize=(6, 1+3*rows))
+
+    # Create figure for plot
+    fig = plt.figure(figsize=(6, 1+3*rows))
+
+    # For each subplot
     for i, cols in enumerate(args.columns):
         plt.subplot(rows, 1, i+1)
         if i == 0:
@@ -97,8 +112,10 @@ def main():
             plot_cols(args, cols, df)
         except KeyError:
             print('Invalid column(s):', cols)
-            return
+            # Remove os subplots vazios
+            fig.delaxes(plt.gca())
 
+    # Save plot
     plt.tight_layout()
     plt.savefig((args.experiment / PROGRESS_FILE).with_suffix('.png'), dpi=args.dpi)
 
@@ -115,7 +132,7 @@ def plot_cols(args: Args, cols: str, df: pd.DataFrame):
                 plot_series(df[col + '_' + typ], c=CM(i), window=args.window, add_noise=not args.no_noise)
                 i += 1
 
-    plt.xlabel('training iteration')
+    plt.xlabel('Training iteration')
     plt.grid()
 
     if args.no_phase:
@@ -151,7 +168,7 @@ def plot_series(s, *, c, window, add_noise):
         plt.scatter([], [], color=c, s=4, label=s.name)
     elif s.name.startswith('custom_metrics/') or s.name.startswith('info/learner/'):
         plt.plot(s, c=c, alpha=.5, lw=1)
-        plt.plot(s.rolling(window, min_periods=1).mean(), label=s.name, c=c)
+        plt.plot(filtfilt(np.ones(window)/window, 1, s.values), label=s.name, c=c)
     else:
         plt.plot(s, label=s.name, c=c)
 
