@@ -1,5 +1,7 @@
 import numpy as np
 from ray.rllib.utils.typing import AgentID
+import gym
+import gym.spaces
 
 from car_env import RewardWrapper, ObservtionWrapper, Info
 from car_env.core import FloatNDArray
@@ -85,3 +87,10 @@ class HitIndicatorRemover(ObservtionWrapper):
         # Odd indices indicate the normalized distance for each ray (or the max if no object has hit)
         # Keep only the odd indices
         return obs[1::2]
+
+    @staticmethod
+    def get_observation_space(_, source_space: gym.Space) -> gym.Space:
+        assert isinstance(source_space, gym.spaces.Box)
+        return gym.spaces.Box(low=source_space.low,  # type: ignore
+                              high=source_space.high,  # type: ignore
+                              shape=(source_space.shape[0]//2,))  # type: ignore
