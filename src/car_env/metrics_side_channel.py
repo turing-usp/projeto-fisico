@@ -1,6 +1,5 @@
-from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
+from mlagents_envs.side_channel.side_channel import SideChannel
 import uuid
-from collections import defaultdict
 import ray
 
 
