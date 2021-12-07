@@ -63,6 +63,7 @@ def run_with_args(args: Args):
     from ray import tune
 
     from car_env import CarEnv, LinearScheduler, CarEnvCallbacks, init as init_car_env
+    import wrappers
 
     ray.init()
     init_car_env()
@@ -88,6 +89,12 @@ def run_with_args(args: Args):
         # === Environment settings (curriculum) ===
         "env_config": {
             "file_name": args.file_name,
+            "wrapper_types": {
+                "CheckpointReward": wrappers.CheckpointReward,
+                "VelocityReward": wrappers.VelocityReward,
+                "DeathPenalty": wrappers.DeathPenalty,
+                "BrakePenalty": wrappers.BrakePenalty,
+            },
             "curriculum": [
                 {  # Phase 0 (initial settings)
                     "unity_config": {
@@ -105,6 +112,23 @@ def run_with_args(args: Args):
                         "HazardCountPerChunk": 0,
                         "HazardMinSpeed": 0,
                         "HazardMaxSpeed": 0,
+                    },
+                    "CheckpointReward": {
+                        "max_reward": 100,
+                        "min_velocity": 0,
+                        "max_velocity": 1,
+                    },
+                    "VelocityReward": {
+                        "coeff_per_second": 2,
+                        "warmup_time": 10,
+                        "min_velocity": -10,
+                        "max_velocity": 1,
+                    },
+                    "DeathPenalty": {
+                        "penalty": 100,
+                    },
+                    "BrakePenalty": {
+                        "coeff_per_second": 1,
                     },
                 },
                 {  # Phase 1
@@ -127,6 +151,9 @@ def run_with_args(args: Args):
                         "AgentVelocityBonus_CoeffPerSecond": 0,
                         "HazardMinSpeed": LinearScheduler(0, 10, 1_500_000),
                         "HazardMaxSpeed": LinearScheduler(0, 10, 1_500_000),
+                    },
+                    "wrappers.VelocityReward": {
+                        "coeff_per_second": 0,
                     },
                 },
                 {  # Phase 3
