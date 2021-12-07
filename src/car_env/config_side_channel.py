@@ -44,37 +44,6 @@ FIELDS = {
     # Default: 0
     'AgentCheckpointMax': int,
 
-    # Configuration for the velocity reward bonus.
-    # Given the forward velocity magnitude |v|, the checkpoint reward is
-    # MaxReward * Clamp(|v| / VelocityForMaxReward, 0, 1).
-    # Takes effect: immediately
-    # Default:
-    #   AgentCheckpointReward_MaxReward: 100
-    #   AgentCheckpointReward_VelocityForMaxReward: 5
-    'AgentCheckpointReward_MaxReward': float,
-    'AgentCheckpointReward_VelocityForMaxReward': float,
-
-    # Reward given when an agent dies
-    # Takes effect: immediately
-    # Default: -100
-    'AgentDeathReward': float,
-
-    # Configuration for the velocity reward bonus.
-    # Given the forward velocity v, clamped to (MinVelocity, MaxVelocity),
-    # the cumulative bonus per second is w*v,
-    # where w grows linearly from zero to CoeffPerSecond over the WarmupTime
-    # (in seconds) and is reset to zero whenever sign(v) changes.
-    # Takes effect: immediately
-    # Default:
-    #   MaxVelocity: 1
-    #   MinVelocity: -10
-    #   WarmupTime: 10
-    #   CoeffPerSecond: 0 (disabled)
-    'AgentVelocityBonus_MaxVelocity': float,
-    'AgentVelocityBonus_MinVelocity': float,
-    'AgentVelocityBonus_WarmupTime': float,
-    'AgentVelocityBonus_CoeffPerSecond': float,
-
 
     #######################
     #    CHUNK CONFIGS    #
