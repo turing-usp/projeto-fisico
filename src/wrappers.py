@@ -1,11 +1,24 @@
+from typing import Callable, Dict, Tuple, TypeVar
 import numpy as np
+import ray
 from ray.rllib.utils.typing import AgentID
 import gym
 import gym.spaces
 
-from car_env import RewardWrapper, ObservtionWrapper, Info
-from car_env.core import FloatNDArray
-from car_env.wrapper import Wrappable
+from car_env import Wrappable, Wrapper, RewardWrapper, ObservtionWrapper, Info, FloatNDArray
+
+
+T = TypeVar('T')
+
+
+def lazy_value(init: Callable[[], T]) -> Callable[[], T]:
+    def getter() -> T:
+        nonlocal val
+        if val is None:
+            val = init()
+        return val
+    val = None
+    return getter
 
 
 class CheckpointReward(RewardWrapper):
@@ -94,3 +107,25 @@ class HitIndicatorRemover(ObservtionWrapper):
         return gym.spaces.Box(low=source_space.low,  # type: ignore
                               high=source_space.high,  # type: ignore
                               shape=(source_space.shape[0]//2,))  # type: ignore
+
+
+class RewardLogger(Wrapper):
+    total_rewards: Dict[AgentID, float]
+
+    def __init__(self, env: Wrappable) -> None:
+        super().__init__(env)
+        self.total_rewards = {}
+
+    def step(self, action_dict: Dict[AgentID, FloatNDArray]) \
+            -> Tuple[Dict[AgentID, FloatNDArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
+        observations, rewards, dones, infos = super().step(action_dict)
+
+        tracker = lazy_value(lambda: ray.get_actor('agent_metric_tracker'))
+        for agent_id, r in rewards.items():
+            self.total_rewards[agent_id] = self.total_rewards.get(agent_id, 0) + r
+            deaths = infos[agent_id]["deaths"]
+            if deaths != 0:
+                for _ in range(deaths):
+                    tracker().add_metric.remote('agent_reward', self.total_rewards[agent_id]/deaths)
+                self.total_rewards[agent_id] = 0
+        return observations, rewards, dones, infos

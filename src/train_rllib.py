@@ -96,6 +96,7 @@ def run_with_args(args: Args):
                 wrappers.VelocityReward,
                 wrappers.DeathPenalty,
                 wrappers.BrakePenalty,
+                wrappers.RewardLogger,
             ],
             curriculum=[
                 {  # Phase 0 (initial settings)
