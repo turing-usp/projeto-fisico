@@ -22,18 +22,17 @@ DEFAULT_COLUMNS = [
         'custom_metrics/agent_reward',
     ]),
     ','.join([
-        'env/unity_config/AgentVelocityBonus_CoeffPerSecond',
         'env/unity_config/HazardCountPerChunk',
         'env/unity_config/ChunkDifficulty',
         'env/unity_config/HazardMaxSpeed',
         'env/unity_config/HazardMinSpeed',
     ]),
     'agent_steps_this_phase',
-    'info/learner/fisico/entropy',
+    'info/learner/car_agent/learner_stats/entropy',
     ','.join([
-        'info/learner/fisico/vf_loss',
-        'info/learner/fisico/policy_loss',
-        'info/learner/fisico/total_loss',
+        'info/learner/car_agent/learner_stats/vf_loss',
+        'info/learner/car_agent/learner_stats/policy_loss',
+        'info/learner/car_agent/learner_stats/total_loss',
     ]),
 ]
 
@@ -81,6 +80,7 @@ def main():
         args.columns = DEFAULT_COLUMNS + [c for c in args.columns if c not in DEFAULT_COLUMNS]
 
     df = pd.read_csv(args.experiment / PROGRESS_FILE)
+    df.columns = [col.lower() for col in df.columns]
     rows = len(args.columns)
     plt.figure(figsize=(6, 1+3*rows))
     for i, cols in enumerate(args.columns):
@@ -103,10 +103,10 @@ def main():
     plt.savefig((args.experiment / PROGRESS_FILE).with_suffix('.png'), dpi=args.dpi)
 
 
-def plot_cols(args: Args, cols, df):
+def plot_cols(args: Args, cols: str, df: pd.DataFrame):
     i = 0
     for col in cols.split(','):
-        col = col.strip()
+        col = col.strip().lower()
         if col in df.columns:
             plot_series(df[col], c=CM(i), window=args.window, add_noise=not args.no_noise)
             i += 1
@@ -125,13 +125,13 @@ def plot_cols(args: Args, cols, df):
         handles, labels = ax.get_legend_handles_labels()
 
         twin_ax = plt.twinx()
-        df['env/phase'].plot(c=(.5, 0, 1), ls='--', dashes=(4, 3.5))
-        plt.ylabel('env/phase')
-        plt.yticks(range(-1, df['env/phase'].iloc[-1] + 1))
+        df['env/curriculum_phase'].plot(c=(.5, 0, 1), ls='--', dashes=(4, 3.5))
+        plt.ylabel('env/curriculum_phase')
+        plt.yticks(range(-1, df['env/curriculum_phase'].iloc[-1] + 1))  # type: ignore
 
         twin_handles, twin_labels = twin_ax.get_legend_handles_labels()
 
-        leg = ax.legend(handles + twin_handles, labels + twin_labels)
+        ax.legend(handles + twin_handles, labels + twin_labels)
 
 
 def plot_series(s, *, c, window, add_noise):
@@ -146,8 +146,8 @@ def plot_series(s, *, c, window, add_noise):
         if add_noise:
             y += .015 * (max(y) - min(y)) * np.random.uniform(-1, 1, size=len(y))
 
-        scatter = plt.scatter(x, y, color=lighten(c, .1), alpha=min(.5, 1000 /
-                                                                    len(x)/HIST_MARKER_SIZE), s=HIST_MARKER_SIZE)
+        plt.scatter(x, y, color=lighten(c, .1), alpha=min(.5, 1000 /
+                                                          len(x)/HIST_MARKER_SIZE), s=HIST_MARKER_SIZE)
         plt.scatter([], [], color=c, s=4, label=s.name)
     elif s.name.startswith('custom_metrics/') or s.name.startswith('info/learner/'):
         plt.plot(s, c=c, alpha=.5, lw=1)
