@@ -1,3 +1,4 @@
+from typing import Callable, List
 import numpy as np
 from abc import abstractmethod, ABC
 
@@ -6,24 +7,27 @@ def identity(x):
     return x
 
 
-class Event:
-    def __init__(self):
-        self._handlers = []
+class EventHandler:
+    def __init__(self, fn: Callable):
+        self._registered_on = []
+        self.fn = fn
 
-    def add(self, h):
-        self._handlers.append(h)
+    def register(self, ev: List['EventHandler']):
+        ev.append(self)
+        self._registered_on.append(ev)
 
-    def remove(self, h):
-        self._handlers.remove(h)
+    def unregister(self):
+        for ev in self._registered_on:
+            ev.remove(self)
+        self._registered_on.clear()
 
     def __call__(self, *args, **kwargs):
-        for h in self._handlers:
-            h(*args, **kwargs)
+        self.fn(*args, **kwargs)
 
 
 class Scheduler(ABC):
     def __init__(self, f=None):
-        self.on_update = Event()
+        self.on_update = []
         self.__f_value = 0
         self.__f = f or identity
 
@@ -31,7 +35,8 @@ class Scheduler(ABC):
         new_f_val = self.__f(new_val)
         if new_f_val != self.__f_value:
             self.__f_value = new_f_val
-            self.on_update()
+            for handler in self.on_update:
+                handler(new_f_val)
 
     @property
     def value(self):

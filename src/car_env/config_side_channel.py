@@ -1,8 +1,9 @@
+from typing import Dict
 from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
 import uuid
 import ray
 
-from .schedulers import Scheduler
+from .schedulers import EventHandler, Scheduler
 
 FIELDS = {
     #######################
@@ -177,31 +178,33 @@ class ConfigSideChannel(SideChannel):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(uuid.UUID("3e7c67af-6e4d-446d-b318-0beb6546e274"))
-        self._scheduler_removers = {}
+        self._handlers: Dict[str, EventHandler] = {}
         for k, v in kwargs.items():
             self.set(k, v)
+
+    def handler(self, key: str) -> EventHandler:
+        key = key.lower()
+
+        h = self._handlers.pop(key, None)
+        if h is not None:
+            return h
+
+        writer = FIELD_WRITERS.get(key, None)
+        if not writer:
+            raise ValueError(f'Invalid key: {key}')
+        self._handlers[key] = EventHandler(lambda val: self._set(writer, key, val))
+        return self._handlers[key]
 
     def on_message_received(self, msg) -> None:
         print('ConfigSideChannel received an unexpected message:', msg)
 
     def set(self, key, value) -> None:
-        key_lower = key.lower()
-        writer = FIELD_WRITERS.get(key_lower, None)
-        if not writer:
-            raise ValueError(f'Invalid key: {key}')
+        h = self.handler(key)
 
-        self._scheduler_removers.pop(key_lower, lambda: None)()
-
+        h.unregister()
+        h(value)
         if isinstance(value, Scheduler):
-            sch = value
-            self._add_handler(key_lower, sch.on_update,
-                              lambda: self._set(writer, key, sch.value))
-            value = sch.value
-        self._set(writer, key, value)
-
-    def _add_handler(self, key_lower, ev, h):
-        ev.add(h)
-        self._scheduler_removers[key_lower] = lambda: ev.remove(h)
+            h.register(value.on_update)
 
     def _set(self, writer, key, value):
         logger = ray.get_actor('param_logger')
