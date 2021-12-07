@@ -1,11 +1,14 @@
+from typing import Any, DefaultDict, Dict, List, Tuple, Union
+
 import ray
+import ray.actor
 from collections import defaultdict
 
 
 _actors = []
 
 
-def init():
+def init() -> None:
     # Store handles to the actors in order to keep them alive
     _actors.extend([
         AgentStepCounter.options(name='agent_step_counter').remote(),
@@ -16,44 +19,51 @@ def init():
 
 @ray.remote
 class AgentStepCounter:
-    def __init__(self):
+    agent_steps_total: int
+    agent_steps_this_phase: int
+
+    def __init__(self) -> None:
         self.agent_steps_total = 0
         self.agent_steps_this_phase = 0
 
-    def add_agent_steps(self, n):
+    def add_agent_steps(self, n: int) -> None:
         self.agent_steps_total += n
         self.agent_steps_this_phase += n
 
-    def get_steps(self):
+    def get_steps(self) -> Tuple[int, int]:
         return self.agent_steps_total, self.agent_steps_this_phase
 
-    def new_phase(self):
+    def new_phase(self) -> None:
         self.agent_steps_this_phase = 0
 
 
 @ray.remote
 class ParamLogger:
-    def __init__(self):
+    configs: Dict[str, Any]
+
+    def __init__(self) -> None:
         self.configs = {}
 
-    def update_param(self, key, value):
+    def update_param(self, key: str, value: Any) -> None:
         if key not in self.configs or self.configs[key] != value:
             print(f'Setting {key}={value}')
             self.configs[key] = value
 
-    def get_params(self):
+    def get_params(self) -> Dict[str, Any]:
         return self.configs
 
 
 @ray.remote
 class AgentMetricTracker:
-    def __init__(self):
+    metrics: DefaultDict[str, List[Union[int, float]]]
+
+    def __init__(self) -> None:
         self.metrics = defaultdict(list)
 
-    def add_metric(self, key, value):
+    def add_metric(self, key: str, value: Union[int, float]) -> None:
         self.metrics[key].append(value)
 
-    def get_metrics(self, reset=True):
+    def get_metrics(self, reset=True) -> DefaultDict[str, List[Union[int, float]]]:
         metrics = self.metrics.copy()
         if reset:
             self.metrics.clear()

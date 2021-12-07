@@ -1,16 +1,23 @@
 import numpy as np
+from ray.rllib.utils.typing import AgentID
+
 from car_env import RewardWrapper, ObservtionWrapper, Info
+from car_env.core import FloatNDArray
 from car_env.wrapper import Wrappable
 
 
 class CheckpointReward(RewardWrapper):
-    def __init__(self, env: Wrappable, max_reward: float, min_velocity: float, max_velocity: float):
+    max_reward: float
+    min_velocity: float
+    max_velocity: float
+
+    def __init__(self, env: Wrappable, max_reward: float, min_velocity: float, max_velocity: float) -> None:
         super().__init__(env)
         self.max_reward = max_reward
         self.min_velocity = min_velocity
         self.max_velocity = max_velocity
 
-    def reward(self, agent_id: int, reward: float, info: Info) -> float:
+    def reward(self, agent_id: AgentID, reward: float, info: Info) -> float:
         vel_mag = info["velocity"].dot(info["forward_vector"])
         if vel_mag > self.min_velocity:
             return reward + self.max_reward * min(1, vel_mag/self.max_velocity)
@@ -19,8 +26,13 @@ class CheckpointReward(RewardWrapper):
 
 
 class VelocityReward(RewardWrapper):
-    def __init__(self, env: Wrappable,
-                 coeff_per_second: float, warmup_time: float, min_velocity: float, max_velocity: float):
+    coeff_per_second: float
+    warmup_time: float
+    min_velocity: float
+    max_velocity: float
+
+    def __init__(self, env: Wrappable, coeff_per_second: float, warmup_time: float,
+                 min_velocity: float, max_velocity: float) -> None:
         super().__init__(env)
         self.coeff_per_second = coeff_per_second
         self.warmup_time = warmup_time
@@ -29,7 +41,7 @@ class VelocityReward(RewardWrapper):
 
         self.moving_weight = 0
 
-    def reward(self, agent_id: int, reward: float, info: Info) -> float:
+    def reward(self, agent_id: AgentID, reward: float, info: Info) -> float:
         vel_mag = info["velocity"].dot(info["forward_vector"])
         vel_mag = min(vel_mag, self.max_velocity)
         if vel_mag > self.min_velocity:
@@ -43,20 +55,24 @@ class VelocityReward(RewardWrapper):
 
 
 class DeathPenalty(RewardWrapper):
-    def __init__(self, env: Wrappable, penalty: float):
+    penalty: float
+
+    def __init__(self, env: Wrappable, penalty: float) -> None:
         super().__init__(env)
         self.penalty = penalty
 
-    def reward(self, agent_id: int, reward: float, info: Info) -> float:
+    def reward(self, agent_id: AgentID, reward: float, info: Info) -> float:
         return reward-self.penalty*info["deaths"]
 
 
 class BrakePenalty(RewardWrapper):
-    def __init__(self, env: Wrappable, coeff_per_second: float):
+    coeff_per_second: float
+
+    def __init__(self, env: Wrappable, coeff_per_second: float) -> None:
         super().__init__(env)
         self.coeff_per_second = coeff_per_second
 
-    def reward(self, agent_id: int, reward: float, info: Info) -> float:
+    def reward(self, agent_id: AgentID, reward: float, info: Info) -> float:
         if info["action_brake"]:
             return reward-self.coeff_per_second * info["time_passed"] * abs(info["action_accelerator"])
         else:
@@ -64,7 +80,7 @@ class BrakePenalty(RewardWrapper):
 
 
 class HitIndicatorRemover(ObservtionWrapper):
-    def observation(self, agent_id, obs):
+    def observation(self, agent_id: AgentID, obs: FloatNDArray) -> FloatNDArray:
         # Even indices indicate whether the ray hit something
         # Odd indices indicate the normalized distance for each ray (or the max if no object has hit)
         # Keep only the odd indices

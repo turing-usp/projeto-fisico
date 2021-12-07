@@ -1,11 +1,13 @@
-from typing import Dict
+from typing import Any, Callable, Dict, Type, Union
+
+from mlagents_envs.side_channel.incoming_message import IncomingMessage
 from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
 import uuid
 import ray
 
 from .schedulers import EventHandler, Scheduler
 
-FIELDS = {
+FIELDS: Dict[str, Type] = {
     #######################
     #    AGENT CONFIGS    #
     #######################
@@ -130,28 +132,33 @@ FIELDS = {
     'FixedDeltaTime': float,
 }
 
-MESSAGE_WRITERS = {
+MessageWriter = Callable[[OutgoingMessage, Any], None]
+
+MESSAGE_WRITERS: Dict[Type, MessageWriter] = {
     int: OutgoingMessage.write_int32,
     float: OutgoingMessage.write_float32,
     str: OutgoingMessage.write_string,
     bool: OutgoingMessage.write_bool,
 }
 
-FIELD_WRITERS = {
+FIELD_WRITERS: Dict[str, MessageWriter] = {
     field_name.lower(): MESSAGE_WRITERS[typ]
     for (field_name, typ) in FIELDS.items()
 }
 
 
 class ConfigSideChannel(SideChannel):
+    Value = Union[int, float, str, bool]
+
+    _handlers: Dict[str, EventHandler[Any]]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(uuid.UUID("3e7c67af-6e4d-446d-b318-0beb6546e274"))
-        self._handlers: Dict[str, EventHandler] = {}
+        self._handlers = {}
         for k, v in kwargs.items():
             self.set(k, v)
 
-    def handler(self, key: str) -> EventHandler:
+    def handler(self, key: str) -> EventHandler[Any]:
         key = key.lower()
 
         h = self._handlers.pop(key, None)
@@ -164,10 +171,10 @@ class ConfigSideChannel(SideChannel):
         self._handlers[key] = EventHandler(lambda val: self._set(writer, key, val))
         return self._handlers[key]
 
-    def on_message_received(self, msg) -> None:
+    def on_message_received(self, msg: IncomingMessage) -> None:
         print('ConfigSideChannel received an unexpected message:', msg)
 
-    def set(self, key, value) -> None:
+    def set(self, key: str, value: Union[Value, Scheduler]) -> None:
         h = self.handler(key)
 
         h.unregister()
@@ -175,7 +182,7 @@ class ConfigSideChannel(SideChannel):
         if isinstance(value, Scheduler):
             h.register(value.on_update)
 
-    def _set(self, writer, key, value):
+    def _set(self, writer: MessageWriter, key: str, value: Value) -> None:
         logger = ray.get_actor('param_logger')
         logger.update_param.remote('unity_config/' + key, value)
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from typing import List
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -44,6 +45,15 @@ plt.rc('font', size=9)
 plt.rc('legend', fontsize=7)
 
 
+class Args(argparse.Namespace):
+    experiment: Path
+    no_phase: bool
+    no_noise: bool
+    window: int
+    dpi: int
+    no_default_columns: bool
+    columns: List[str]
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -65,7 +75,7 @@ def main():
                         'If COL does not exist, will try to plot COL_min, COL_max and COL_mean. '
                         'If COL is a comma-separated list of columns, plot them all together. '
                         '(repeatable)')
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=Args())
 
     if not args.no_default_columns:
         args.columns = DEFAULT_COLUMNS + [c for c in args.columns if c not in DEFAULT_COLUMNS]
@@ -77,9 +87,11 @@ def main():
         plt.subplot(rows, 1, i+1)
         if i == 0:
             plt.suptitle(args.experiment.name, fontsize=12)
-            train_iters = df["training_iteration"].iloc[-1]
-            total_time = df["time_total_s"].iloc[-1]
-            plt.title(f'\n\n{train_iters} iterations    {total_time:.1f} seconds    {total_time/train_iters:.1f} $\pm$ {np.std(df["time_this_iter_s"]):.1f} seconds/iteration\n'
+            train_iters: int = df["training_iteration"].iloc[-1]  # type: ignore
+            total_time: float = df["time_total_s"].iloc[-1]  # type: ignore
+            plt.title(f'\n\n{train_iters} iterations    '
+                      f'{total_time:.1f} seconds    '
+                      f'{total_time/train_iters:.1f} $\\pm$ {np.std(df["time_this_iter_s"]):.1f} seconds/iteration\n'
                       f'rolling average exponential window with size {args.window}\n')
         try:
             plot_cols(args, cols, df)
@@ -91,7 +103,7 @@ def main():
     plt.savefig((args.experiment / PROGRESS_FILE).with_suffix('.png'), dpi=args.dpi)
 
 
-def plot_cols(args, cols, df):
+def plot_cols(args: Args, cols, df):
     i = 0
     for col in cols.split(','):
         col = col.strip()
@@ -105,20 +117,20 @@ def plot_cols(args, cols, df):
 
     plt.xlabel('training iteration')
     plt.grid()
-    
+
     if args.no_phase:
         plt.legend()
     else:
         ax = plt.gca()
         handles, labels = ax.get_legend_handles_labels()
-        
+
         twin_ax = plt.twinx()
-        df['env/phase'].plot(c=(.5,0,1), ls='--', dashes=(4,3.5))
+        df['env/phase'].plot(c=(.5, 0, 1), ls='--', dashes=(4, 3.5))
         plt.ylabel('env/phase')
         plt.yticks(range(-1, df['env/phase'].iloc[-1] + 1))
-        
+
         twin_handles, twin_labels = twin_ax.get_legend_handles_labels()
-        
+
         leg = ax.legend(handles + twin_handles, labels + twin_labels)
 
 
@@ -133,8 +145,9 @@ def plot_series(s, *, c, window, add_noise):
             y.extend(vals)
         if add_noise:
             y += .015 * (max(y) - min(y)) * np.random.uniform(-1, 1, size=len(y))
-        
-        scatter = plt.scatter(x, y, color=lighten(c, .1), alpha=min(.5, 1000/len(x)/HIST_MARKER_SIZE), s=HIST_MARKER_SIZE)
+
+        scatter = plt.scatter(x, y, color=lighten(c, .1), alpha=min(.5, 1000 /
+                                                                    len(x)/HIST_MARKER_SIZE), s=HIST_MARKER_SIZE)
         plt.scatter([], [], color=c, s=4, label=s.name)
     elif s.name.startswith('custom_metrics/') or s.name.startswith('info/learner/'):
         plt.plot(s, c=c, alpha=.5, lw=1)

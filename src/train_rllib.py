@@ -3,6 +3,8 @@
 import argparse
 from typing import Literal, Optional
 
+from car_env import EnvConfig
+
 
 class Args(argparse.Namespace):
     file_name: Optional[str]
@@ -87,15 +89,15 @@ def run_with_args(args: Args):
         "log_level": args.log_level,
 
         # === Environment settings (curriculum) ===
-        "env_config": {
-            "file_name": args.file_name,
-            "wrapper_types": {
+        "env_config": EnvConfig(
+            file_name=args.file_name,
+            wrapper_types={
                 "CheckpointReward": wrappers.CheckpointReward,
                 "VelocityReward": wrappers.VelocityReward,
                 "DeathPenalty": wrappers.DeathPenalty,
                 "BrakePenalty": wrappers.BrakePenalty,
             },
-            "curriculum": [
+            curriculum=[
                 {  # Phase 0 (initial settings)
                     "unity_config": {
                         "AgentCount": agent_count_per_env,
@@ -113,22 +115,24 @@ def run_with_args(args: Args):
                         "HazardMinSpeed": 0,
                         "HazardMaxSpeed": 0,
                     },
-                    "CheckpointReward": {
-                        "max_reward": 100,
-                        "min_velocity": 0,
-                        "max_velocity": 1,
-                    },
-                    "VelocityReward": {
-                        "coeff_per_second": 2,
-                        "warmup_time": 10,
-                        "min_velocity": -10,
-                        "max_velocity": 1,
-                    },
-                    "DeathPenalty": {
-                        "penalty": 100,
-                    },
-                    "BrakePenalty": {
-                        "coeff_per_second": 1,
+                    "wrappers": {
+                        "CheckpointReward": {
+                            "max_reward": 100,
+                            "min_velocity": 0,
+                            "max_velocity": 1,
+                        },
+                        "VelocityReward": {
+                            "coeff_per_second": 2,
+                            "warmup_time": 10,
+                            "min_velocity": -10,
+                            "max_velocity": 1,
+                        },
+                        "DeathPenalty": {
+                            "penalty": 100,
+                        },
+                        "BrakePenalty": {
+                            "coeff_per_second": 1,
+                        },
                     },
                 },
                 {  # Phase 1
@@ -152,9 +156,11 @@ def run_with_args(args: Args):
                         "HazardMinSpeed": LinearScheduler(0, 10, 1_500_000),
                         "HazardMaxSpeed": LinearScheduler(0, 10, 1_500_000),
                     },
-                    "wrappers.VelocityReward": {
-                        "coeff_per_second": 0,
-                    },
+                    "wrappers": {
+                        "VelocityReward": {
+                            "coeff_per_second": 0,
+                        },
+                    }
                 },
                 {  # Phase 3
                     "when": {
@@ -169,7 +175,7 @@ def run_with_args(args: Args):
                     },
                 },
             ],
-        },
+        ),
 
         # === Model ===
         "model": {
