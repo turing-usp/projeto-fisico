@@ -113,9 +113,9 @@ class CarEnv(Unity3DEnv):
                     [self._config_side_channel, self._metrics_side_channel])
                 original_init(inner_self, *args, **kwargs,
                               side_channels=side_channels)
-            UnityEnvironment.__init__ = new_init
+            UnityEnvironment.__init__ = new_init  # type: ignore
             super().__init__(*args,
-                             episode_horizon=float('inf'),
+                             episode_horizon=float('inf'),  # type: ignore
                              file_name=file_name,
                              no_graphics=file_name is None,
                              **kwargs)

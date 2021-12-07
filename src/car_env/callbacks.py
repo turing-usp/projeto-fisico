@@ -9,11 +9,12 @@ class CarEnvCallbacks(DefaultCallbacks):
         tracker = ray.get_actor('agent_metric_tracker')
         logger = ray.get_actor('param_logger')
         counter = ray.get_actor('agent_step_counter')
-        new_metrics, logged_config, (result['agent_steps_total'], result['agent_steps_this_phase']) = ray.get([
-            tracker.get_metrics.remote(reset=True),
-            logger.get_params.remote(),
-            counter.get_steps.remote(),
-        ])
+        new_metrics, logged_config, (result['agent_steps_total'], result['agent_steps_this_phase']) = \
+            ray.get([  # type: ignore
+                tracker.get_metrics.remote(reset=True),
+                logger.get_params.remote(),
+                counter.get_steps.remote(),
+            ])
 
         result['env'] = logged_config.copy()
 

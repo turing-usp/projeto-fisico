@@ -11,9 +11,9 @@ _actors = []
 def init() -> None:
     # Store handles to the actors in order to keep them alive
     _actors.extend([
-        AgentStepCounter.options(name='agent_step_counter').remote(),
-        ParamLogger.options(name='param_logger').remote(),
-        AgentMetricTracker.options(name='agent_metric_tracker').remote(),
+        AgentStepCounter.options(name='agent_step_counter').remote(),  # type: ignore
+        ParamLogger.options(name='param_logger').remote(),  # type: ignore
+        AgentMetricTracker.options(name='agent_metric_tracker').remote(),  # type: ignore
     ])
 
 

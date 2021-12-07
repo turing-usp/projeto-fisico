@@ -47,10 +47,10 @@ def main():
 
     if args.gpus is None:
         if args.framework == 'torch':
-            import torch
+            import torch  # type: ignore
             args.gpus = torch.cuda.device_count()
         else:
-            import tensorflow as tf
+            import tensorflow as tf  # type: ignore
             args.gpus = len(tf.config.list_physical_devices('GPU'))
 
     if args.file_name is not None:
