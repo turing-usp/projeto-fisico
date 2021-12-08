@@ -35,7 +35,7 @@ class CheckpointReward(RewardWrapper):
     def reward(self, agent_id: AgentID, reward: float, info: Info) -> float:
         vel_mag = info["velocity"].dot(info["forward_vector"])
         if vel_mag > self.min_velocity:
-            return reward + self.max_reward * min(1, vel_mag/self.max_velocity)
+            return reward + info["new_checkpoints"] * self.max_reward * min(1, vel_mag/self.max_velocity)
         else:
             return reward
 
