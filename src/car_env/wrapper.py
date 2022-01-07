@@ -58,7 +58,7 @@ class Wrapper(MultiAgentEnv):
         return source_space
 
     def with_agent_groups(self, groups: Dict[str, List[AgentID]], obs_space: gym.Space = None,
-                          act_space: gym.Space = None) -> "MultiAgentEnv":
+                          act_space: gym.Space = None) -> MultiAgentEnv:
         return self.unwrapped.with_agent_groups(groups, obs_space, act_space)
 
 
