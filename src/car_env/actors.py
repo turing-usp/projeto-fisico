@@ -5,19 +5,43 @@ import ray.actor
 from collections import defaultdict
 
 
+_AGENT_STEP_COUNTER = 'agent_step_counter'
+_PARAM_LOGGER = 'param_logger'
+_AGENT_METRIC_TRACKER = 'agent_metric_tracker'
 _actors = []
 
 
 def init() -> None:
     # Store handles to the actors in order to keep them alive
     _actors.extend([
-        AgentStepCounter.options(name='agent_step_counter').remote(),  # type: ignore
-        ParamLogger.options(name='param_logger').remote(),  # type: ignore
-        AgentMetricTracker.options(name='agent_metric_tracker').remote(),  # type: ignore
+        ray.remote(AgentStepCounter).options(name=_AGENT_STEP_COUNTER).remote(),
+        ray.remote(ParamLogger).options(name=_PARAM_LOGGER).remote(),
+        ray.remote(AgentMetricTracker).options(name=_AGENT_METRIC_TRACKER).remote(),
     ])
 
+    # NOTE: we use ray.remote here instead of as a decorator on the actor classes
+    # in order to allow for proper documentation to be generated
 
-@ray.remote
+
+def _get_actor(name: str) -> ray.actor.ActorHandle:
+    try:
+        return ray.get_actor(name)
+    except ValueError:
+        raise RuntimeError(f'No such agent: {name}. Did you forget to call car_env.actors.init() in the main thread?')
+
+
+def agent_step_counter() -> ray.actor.ActorHandle:
+    return _get_actor(_AGENT_STEP_COUNTER)
+
+
+def param_logger() -> ray.actor.ActorHandle:
+    return _get_actor(_PARAM_LOGGER)
+
+
+def agent_metric_tracker() -> ray.actor.ActorHandle:
+    return _get_actor(_AGENT_METRIC_TRACKER)
+
+
 class AgentStepCounter:
     agent_steps_total: int
     agent_steps_this_phase: int
@@ -37,7 +61,6 @@ class AgentStepCounter:
         self.agent_steps_this_phase = 0
 
 
-@ray.remote
 class ParamLogger:
     configs: Dict[str, Any]
 
@@ -53,7 +76,6 @@ class ParamLogger:
         return self.configs
 
 
-@ray.remote
 class AgentMetricTracker:
     metrics: DefaultDict[str, List[Union[int, float]]]
 

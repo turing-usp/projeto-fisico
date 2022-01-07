@@ -5,7 +5,6 @@ import gym
 import numpy as np
 import numpy.typing as npt
 from gym import spaces
-import ray
 from ray import tune
 from ray.rllib.env.wrappers.unity3d_env import Unity3DEnv
 from ray.rllib.utils.annotations import override
@@ -16,6 +15,7 @@ from .config_side_channel import ConfigSideChannel
 from .metrics_side_channel import MetricsSideChannel
 from .schedulers import Scheduler
 from .wrapper import Wrappable, Wrapper
+from . import actors
 
 
 def flatten(obj: dict, d: Dict[str, Any] = None, prefix: str = '') -> Dict[str, Any]:
@@ -137,10 +137,10 @@ class CarEnv(Unity3DEnv):
 
     def set_curriculum_phase(self, phase: int) -> None:
         self.phase = phase
-        logger = ray.get_actor('param_logger')
+        logger = actors.param_logger()
         logger.update_param.remote('curriculum_phase', phase)
 
-        counter = ray.get_actor('agent_step_counter')
+        counter = actors.agent_step_counter()
         counter.new_phase.remote()
 
         for k, v in self.curriculum[phase].get('unity_config', {}).items():
@@ -186,7 +186,7 @@ class CarEnv(Unity3DEnv):
         self.last_actions.update(action_dict)
         raw_obs, rewards, dones, _ = super().step(action_dict)
 
-        counter = ray.get_actor('agent_step_counter')
+        counter = actors.agent_step_counter()
         counter.add_agent_steps.remote(len(action_dict))
 
         obs = self._get_obs(raw_obs)

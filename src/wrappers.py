@@ -1,12 +1,12 @@
 from typing import Callable, Dict, Tuple, TypeVar
 import numpy as np
-import ray
 from ray.rllib.utils.typing import AgentID
 import gym
 import gym.spaces
 
 from car_env.core import Info, FloatNDArray
 from car_env.wrapper import Wrappable, Wrapper, RewardWrapper, ObservationWrapper
+from car_env import actors
 
 
 T = TypeVar('T')
@@ -121,7 +121,7 @@ class RewardLogger(Wrapper):
             -> Tuple[Dict[AgentID, FloatNDArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
         observations, rewards, dones, infos = super().step(action_dict)
 
-        tracker = lazy_value(lambda: ray.get_actor('agent_metric_tracker'))
+        tracker = lazy_value(lambda: actors.agent_metric_tracker())
         for agent_id, r in rewards.items():
             self.total_rewards[agent_id] = self.total_rewards.get(agent_id, 0) + r
             deaths = infos[agent_id]["deaths"]

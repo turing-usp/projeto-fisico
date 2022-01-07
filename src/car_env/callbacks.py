@@ -3,12 +3,14 @@ import ray
 from ray.rllib.agents.callbacks import DefaultCallbacks
 from ray.rllib.agents.trainer import Trainer
 
+from . import actors
+
 
 class CarEnvCallbacks(DefaultCallbacks):
     def on_train_result(self, *, trainer: Trainer, result: dict, **kwargs) -> None:
-        tracker = ray.get_actor('agent_metric_tracker')
-        logger = ray.get_actor('param_logger')
-        counter = ray.get_actor('agent_step_counter')
+        tracker = actors.agent_metric_tracker()
+        logger = actors.param_logger()
+        counter = actors.agent_step_counter()
         new_metrics, logged_config, (result['agent_steps_total'], result['agent_steps_this_phase']) = \
             ray.get([  # type: ignore
                 tracker.get_metrics.remote(reset=True),
