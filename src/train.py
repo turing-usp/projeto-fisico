@@ -202,7 +202,7 @@ def run_with_args(args: Args):
     # === Multiagent settings ===
     config["multiagent"] = {
         "policies": {"car_agent": CarEnv.get_policy(config["env_config"]["curriculum"])},
-        "policy_mapping_fn": lambda agent_id: "car_agent",
+        "policy_mapping_fn": lambda agent_id, episode, worker, **kwargs: "car_agent",
         "count_steps_by": "agent_steps",
     }
 
