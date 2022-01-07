@@ -14,7 +14,7 @@ from ray.rllib.utils.typing import AgentID
 from .config_side_channel import ConfigSideChannel
 from .metrics_side_channel import MetricsSideChannel
 from .schedulers import Scheduler
-from .wrapper import Wrappable, Wrapper
+from .wrapper import Wrapper
 from . import actors
 
 
@@ -37,22 +37,22 @@ def satisfies_constraint(flat_obj: Dict[str, Any], key: str, min_value: Union[fl
     return flat_obj[key] >= min_value
 
 
-def satisfies_constraints(obj: dict, constraints: "Contraints"):
+def satisfies_constraints(obj: dict, constraints: Dict[str, Union[float, int]]) -> bool:
     flat_obj = flatten(obj)
     return all(satisfies_constraint(flat_obj, key, min_value)
                for key, min_value in constraints.items())
 
 
-FloatNDArray = npt.NDArray[np.float64]
+FloatArray = npt.NDArray[np.float64]
 
 
 class Info(TypedDict):
     time_passed: float
     new_checkpoints: int
 
-    forward_vector: FloatNDArray
-    velocity: FloatNDArray
-    angular_velocity: FloatNDArray
+    forward_vector: FloatArray
+    velocity: FloatArray
+    angular_velocity: FloatArray
 
     action_accelerator: float
     action_steer: float
@@ -61,35 +61,27 @@ class Info(TypedDict):
     deaths: int
 
 
-Contraints = Dict[str, Union[float, int]]
-UnityConfig = Dict[str, Union[ConfigSideChannel.Value, Scheduler]]
-WrapperConfig = Dict[str, Dict[str, Any]]
-
-
 class CurriculumPhase(TypedDict, total=False):
-    when: Contraints
+    when: Dict[str, Union[float, int]]
     for_iterations: int
-    unity_config: UnityConfig
-    wrappers: WrapperConfig
-
-
-Curriculum = List[CurriculumPhase]
+    unity_config: Dict[str, Union[ConfigSideChannel.Value, Scheduler]]
+    wrappers: Dict[str, Dict[str, Any]]
 
 
 class EnvConfig(TypedDict, total=False):
     file_name: Optional[str]
     wrappers: List[Type[Wrapper]]
-    curriculum: Curriculum
+    curriculum: List[CurriculumPhase]
 
 
 class CarEnv(Unity3DEnv):
     _config_side_channel: ConfigSideChannel
     _metrics_side_channel: MetricsSideChannel
 
-    curriculum: Curriculum
+    curriculum: List[CurriculumPhase]
 
-    unity_config: UnityConfig
-    last_actions: Dict[AgentID, FloatNDArray]
+    unity_config: Dict[str, Union[ConfigSideChannel.Value, Scheduler]]
+    last_actions: Dict[AgentID, FloatArray]
     _schedulers: List[Scheduler]
     _iters_satisfying_curriculum: int
 
@@ -98,7 +90,7 @@ class CarEnv(Unity3DEnv):
     def __init__(self,
                  *args,
                  file_name: str = None,
-                 curriculum: Curriculum = [],
+                 curriculum: List[CurriculumPhase] = [],
                  **kwargs) -> None:
 
         self._config_side_channel = ConfigSideChannel()
@@ -180,8 +172,8 @@ class CarEnv(Unity3DEnv):
             sch.step_to(result['agent_steps_this_phase'])
 
     @override(Unity3DEnv)
-    def step(self, action_dict: Dict[AgentID, FloatNDArray]) \
-            -> Tuple[Dict[AgentID, FloatNDArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
+    def step(self, action_dict: Dict[AgentID, FloatArray]) \
+            -> Tuple[Dict[AgentID, FloatArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
 
         self.last_actions.update(action_dict)
         raw_obs, rewards, dones, _ = super().step(action_dict)
@@ -196,7 +188,7 @@ class CarEnv(Unity3DEnv):
         return obs, rewards, dones, infos
 
     @override(Unity3DEnv)
-    def reset(self) -> Dict[AgentID, FloatNDArray]:
+    def reset(self) -> Dict[AgentID, FloatArray]:
         if not self.last_actions:
             # first iteration => initialize the curriculum
             self.set_curriculum_phase(0)
@@ -205,7 +197,7 @@ class CarEnv(Unity3DEnv):
         return self._get_obs(raw_obs)
 
     @staticmethod
-    def get_observation_space(curriculum: Curriculum, wrappers: List[Wrapper] = []) -> gym.Space:
+    def get_observation_space(curriculum: List[CurriculumPhase], wrappers: List[Wrapper] = []) -> gym.Space:
         config = curriculum[0].get('unity_config', {}) if len(curriculum) >= 1 else {}
         rays_per_direction = config.get('AgentRaysPerDirection', 3)
         assert isinstance(rays_per_direction, int)
@@ -216,14 +208,14 @@ class CarEnv(Unity3DEnv):
         return space
 
     @staticmethod
-    def get_action_space(curriculum: Curriculum, wrappers: List[Wrapper] = []) -> gym.Space:
+    def get_action_space(curriculum: List[CurriculumPhase], wrappers: List[Wrapper] = []) -> gym.Space:
         space = spaces.Box(-1, 1, (3,), dtype=np.float32)
         for w in wrappers:
             space = w.get_observation_space(curriculum, space)
         return space
 
     @staticmethod
-    def get_policy(curriculum: Curriculum, wrappers: List[Wrapper] = []) \
+    def get_policy(curriculum: List[CurriculumPhase], wrappers: List[Wrapper] = []) \
             -> Tuple[Optional[Type], gym.Space, gym.Space, Dict]:
 
         obs_space = CarEnv.get_observation_space(curriculum, wrappers)
@@ -231,11 +223,11 @@ class CarEnv(Unity3DEnv):
         return (None, obs_space, action_space, {})
 
     @staticmethod
-    def _get_obs(raw_obs: Dict[AgentID, Tuple[FloatNDArray, FloatNDArray]]) -> Dict[AgentID, FloatNDArray]:
+    def _get_obs(raw_obs: Dict[AgentID, Tuple[FloatArray, FloatArray]]) -> Dict[AgentID, FloatArray]:
         return {agent_id: s[0]
                 for agent_id, s in raw_obs.items()}
 
-    def _get_infos(self, raw_obs: Dict[AgentID, Tuple[FloatNDArray, FloatNDArray]], rewards: Dict[AgentID, float]) \
+    def _get_infos(self, raw_obs: Dict[AgentID, Tuple[FloatArray, FloatArray]], rewards: Dict[AgentID, float]) \
             -> Dict[AgentID, Info]:
         return {
             agent_id: Info(
@@ -252,8 +244,8 @@ class CarEnv(Unity3DEnv):
             for agent_id, s in raw_obs.items()
         }
 
+def create_env(config: EnvConfig) -> Union[CarEnv, Wrapper]:
 
-def create_env(config: EnvConfig) -> Wrappable:
     config = config.copy()
     wrappers = config.pop('wrappers', [])
 

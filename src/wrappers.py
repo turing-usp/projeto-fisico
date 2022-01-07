@@ -1,12 +1,12 @@
-from typing import Callable, Dict, Tuple, TypeVar
+from typing import Callable, Dict, Tuple, TypeVar, Union
 import numpy as np
 from ray.rllib.utils.typing import AgentID
 import gym
 import gym.spaces
 
-from car_env.core import Info, FloatNDArray
-from car_env.wrapper import Wrappable, Wrapper, RewardWrapper, ObservationWrapper
 from car_env import actors
+from car_env.core import CarEnv, Info, FloatArray
+from car_env.wrapper import Wrapper, RewardWrapper, ObservationWrapper
 
 
 T = TypeVar('T')
@@ -27,7 +27,8 @@ class CheckpointReward(RewardWrapper):
     min_velocity: float
     max_velocity: float
 
-    def __init__(self, env: Wrappable, max_reward: float, min_velocity: float, max_velocity: float) -> None:
+    def __init__(self, env: Union[CarEnv, Wrapper], max_reward: float,
+                 min_velocity: float, max_velocity: float) -> None:
         super().__init__(env)
         self.max_reward = max_reward
         self.min_velocity = min_velocity
@@ -47,7 +48,7 @@ class VelocityReward(RewardWrapper):
     min_velocity: float
     max_velocity: float
 
-    def __init__(self, env: Wrappable, coeff_per_second: float, warmup_time: float,
+    def __init__(self, env: Union[CarEnv, Wrapper], coeff_per_second: float, warmup_time: float,
                  min_velocity: float, max_velocity: float) -> None:
         super().__init__(env)
         self.coeff_per_second = coeff_per_second
@@ -73,7 +74,7 @@ class VelocityReward(RewardWrapper):
 class DeathPenalty(RewardWrapper):
     penalty: float
 
-    def __init__(self, env: Wrappable, penalty: float) -> None:
+    def __init__(self, env: Union[CarEnv, Wrapper], penalty: float) -> None:
         super().__init__(env)
         self.penalty = penalty
 
@@ -84,7 +85,7 @@ class DeathPenalty(RewardWrapper):
 class BrakePenalty(RewardWrapper):
     coeff_per_second: float
 
-    def __init__(self, env: Wrappable, coeff_per_second: float) -> None:
+    def __init__(self, env: Union[CarEnv, Wrapper], coeff_per_second: float) -> None:
         super().__init__(env)
         self.coeff_per_second = coeff_per_second
 
@@ -96,7 +97,7 @@ class BrakePenalty(RewardWrapper):
 
 
 class HitIndicatorRemover(ObservtionWrapper):
-    def observation(self, agent_id: AgentID, obs: FloatNDArray) -> FloatNDArray:
+    def observation(self, agent_id: AgentID, obs: FloatArray) -> FloatArray:
         # Even indices indicate whether the ray hit something
         # Odd indices indicate the normalized distance for each ray (or the max if no object has hit)
         # Keep only the odd indices
@@ -113,12 +114,12 @@ class HitIndicatorRemover(ObservtionWrapper):
 class RewardLogger(Wrapper):
     total_rewards: Dict[AgentID, float]
 
-    def __init__(self, env: Wrappable) -> None:
+    def __init__(self, env: Union[CarEnv, Wrapper]) -> None:
         super().__init__(env)
         self.total_rewards = {}
 
-    def step(self, action_dict: Dict[AgentID, FloatNDArray]) \
-            -> Tuple[Dict[AgentID, FloatNDArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
+    def step(self, action_dict: Dict[AgentID, FloatArray]) \
+            -> Tuple[Dict[AgentID, FloatArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
         observations, rewards, dones, infos = super().step(action_dict)
 
         tracker = lazy_value(lambda: actors.agent_metric_tracker())

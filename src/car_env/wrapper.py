@@ -9,16 +9,16 @@ from ray.rllib.utils.typing import AgentID
 
 
 if TYPE_CHECKING:
-    from .core import CarEnv, FloatNDArray, Info, Curriculum
+    from .core import CarEnv, Info, CurriculumPhase, FloatArray
 
 
-Wrappable = Union['CarEnv', 'Wrapper']
 
 
 class Wrapper(MultiAgentEnv):
-    env: Wrappable
 
-    def __init__(self, env: Wrappable) -> None:
+    env: Union['CarEnv', 'Wrapper']
+
+    def __init__(self, env: Union['CarEnv', 'Wrapper']) -> None:
         self.env = env
         self.unwrapped.wrappers.append(self)
 
@@ -32,11 +32,11 @@ class Wrapper(MultiAgentEnv):
     def set_curriculum_phase(self, phase: int) -> None:
         self.env.set_curriculum_phase(phase)
 
-    def step(self, action_dict: Dict[AgentID, FloatNDArray]) \
-            -> Tuple[Dict[AgentID, FloatNDArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
+    def step(self, action_dict: Dict[AgentID, FloatArray]) \
+            -> Tuple[Dict[AgentID, FloatArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
         return self.env.step(action_dict)
 
-    def reset(self) -> Dict[AgentID, FloatNDArray]:
+    def reset(self) -> Dict[AgentID, FloatArray]:
         return self.env.reset()
 
     def set_param(self, key: str, val: Any) -> bool:
@@ -50,11 +50,11 @@ class Wrapper(MultiAgentEnv):
             return False
 
     @staticmethod
-    def get_observation_space(curriculum: Curriculum, source_space: gym.Space) -> gym.Space:
+    def get_observation_space(curriculum: List[CurriculumPhase], source_space: gym.Space) -> gym.Space:
         return source_space
 
     @staticmethod
-    def get_action_space(curriculum: Curriculum, source_space: gym.Space) -> gym.Space:
+    def get_action_space(curriculum: List[CurriculumPhase], source_space: gym.Space) -> gym.Space:
         return source_space
 
     def with_agent_groups(self, groups: Dict[str, List[AgentID]], obs_space: gym.Space = None,
@@ -67,23 +67,23 @@ class ObservtionWrapper(Wrapper):
         observations = super().reset()
         return self.__transform(observations)
 
-    def step(self, action_dict: Dict[AgentID, FloatNDArray]) \
-            -> Tuple[Dict[AgentID, FloatNDArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
+    def step(self, action_dict: Dict[AgentID, FloatArray]) \
+            -> Tuple[Dict[AgentID, FloatArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
         observations, rewards, dones, infos = super().step(action_dict)
         return self.__transform(observations), rewards, dones, infos
 
-    def __transform(self, observations: Dict[AgentID, FloatNDArray]) -> Dict[AgentID, FloatNDArray]:
+    def __transform(self, observations: Dict[AgentID, FloatArray]) -> Dict[AgentID, FloatArray]:
         return {agent_id: self.observation(agent_id, obs)
                 for agent_id, obs in observations.items()}
 
     @abstractmethod
-    def observation(self, agent_id: AgentID, obs: FloatNDArray) -> FloatNDArray:
+    def observation(self, agent_id: AgentID, obs: FloatArray) -> FloatArray:
         raise NotImplementedError()
 
 
 class RewardWrapper(Wrapper):
-    def step(self, action_dict: Dict[AgentID, FloatNDArray]) \
-            -> Tuple[Dict[AgentID, FloatNDArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
+    def step(self, action_dict: Dict[AgentID, FloatArray]) \
+            -> Tuple[Dict[AgentID, FloatArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
         observations, rewards, dones, infos = self.env.step(action_dict)
         return observations, self.__transform(rewards, infos), dones, infos
 
@@ -97,14 +97,14 @@ class RewardWrapper(Wrapper):
 
 
 class ActionWrapper(Wrapper):
-    def step(self, action_dict: Dict[AgentID, FloatNDArray]) \
-            -> Tuple[Dict[AgentID, FloatNDArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
+    def step(self, action_dict: Dict[AgentID, FloatArray]) \
+            -> Tuple[Dict[AgentID, FloatArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
         return self.env.step(self.__transform(action_dict))
 
-    def __transform(self, action_dict: Dict[AgentID, FloatNDArray]) -> Dict[AgentID, FloatNDArray]:
+    def __transform(self, action_dict: Dict[AgentID, FloatArray]) -> Dict[AgentID, FloatArray]:
         return {agent_id: self.reward(agent_id, r)
                 for agent_id, r in action_dict.items()}
 
     @abstractmethod
-    def action(self, agent_id: AgentID, action: FloatNDArray) -> FloatNDArray:
+    def action(self, agent_id: AgentID, action: FloatArray) -> FloatArray:
         raise NotImplementedError()
