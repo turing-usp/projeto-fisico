@@ -62,7 +62,7 @@ class Wrapper(MultiAgentEnv):
         return self.unwrapped.with_agent_groups(groups, obs_space, act_space)
 
 
-class ObservtionWrapper(Wrapper):
+class ObservationWrapper(Wrapper):
     def reset(self):
         observations = super().reset()
         return self.__transform(observations)

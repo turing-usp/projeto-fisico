@@ -96,7 +96,7 @@ class BrakePenalty(RewardWrapper):
             return reward
 
 
-class HitIndicatorRemover(ObservtionWrapper):
+class HitIndicatorRemover(ObservationWrapper):
     def observation(self, agent_id: AgentID, obs: FloatArray) -> FloatArray:
         # Even indices indicate whether the ray hit something
         # Odd indices indicate the normalized distance for each ray (or the max if no object has hit)
