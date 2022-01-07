@@ -7,6 +7,7 @@ import numpy.typing as npt
 from gym import spaces
 from ray import tune
 from ray.rllib.env.wrappers.unity3d_env import Unity3DEnv
+from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from ray.rllib.utils.annotations import override
 from mlagents_envs.environment import UnityEnvironment
 from ray.rllib.utils.typing import AgentID
@@ -195,6 +196,10 @@ class CarEnv(Unity3DEnv):
 
         raw_obs = super().reset()
         return self._get_obs(raw_obs)
+
+    def with_agent_groups(self, groups: Dict[str, List[AgentID]], obs_space: gym.Space = None,
+                          act_space: gym.Space = None) -> MultiAgentEnv:
+        return self.unwrapped.with_agent_groups(groups, obs_space, act_space)
 
     @staticmethod
     def get_observation_space(curriculum: List[CurriculumPhase], wrappers: List[Wrapper] = []) -> gym.Space:
