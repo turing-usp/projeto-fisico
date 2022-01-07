@@ -12,7 +12,7 @@ from car_env.wrapper import Wrapper, RewardWrapper, ObservationWrapper
 T = TypeVar('T')
 
 
-def lazy_value(init: Callable[[], T]) -> Callable[[], T]:
+def _lazy_value(init: Callable[[], T]) -> Callable[[], T]:
     def getter() -> T:
         nonlocal val
         if val is None:
@@ -122,7 +122,7 @@ class RewardLogger(Wrapper):
             -> Tuple[Dict[AgentID, FloatArray], Dict[AgentID, float], Dict[AgentID, bool], Dict[AgentID, Info]]:
         observations, rewards, dones, infos = super().step(action_dict)
 
-        tracker = lazy_value(lambda: actors.agent_metric_tracker())
+        tracker = _lazy_value(lambda: actors.agent_metric_tracker())
         for agent_id, r in rewards.items():
             self.total_rewards[agent_id] = self.total_rewards.get(agent_id, 0) + r
             deaths = infos[agent_id]["deaths"]

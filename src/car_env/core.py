@@ -18,19 +18,19 @@ from .wrapper import Wrapper
 from . import actors
 
 
-def flatten(obj: dict, d: Dict[str, Any] = None, prefix: str = '') -> Dict[str, Any]:
+def _flatten(obj: dict, d: Dict[str, Any] = None, prefix: str = '') -> Dict[str, Any]:
     if d is None:
         d = {}
     for key, val in obj.items():
         full_key = prefix + str(key)
         if isinstance(val, dict):
-            flatten(val, d=d, prefix=full_key + '/')
+            _flatten(val, d=d, prefix=full_key + '/')
         else:
             d[full_key] = val
     return d
 
 
-def satisfies_constraint(flat_obj: Dict[str, Any], key: str, min_value: Union[float, int]):
+def _satisfies_constraint(flat_obj: Dict[str, Any], key: str, min_value: Union[float, int]) -> bool:
     if key not in flat_obj:
         print(f'Warning: missing constraint key "{key}" (in constraint {key} >= {min_value})')
         return False
@@ -38,8 +38,8 @@ def satisfies_constraint(flat_obj: Dict[str, Any], key: str, min_value: Union[fl
 
 
 def satisfies_constraints(obj: dict, constraints: Dict[str, Union[float, int]]) -> bool:
-    flat_obj = flatten(obj)
-    return all(satisfies_constraint(flat_obj, key, min_value)
+    flat_obj = _flatten(obj)
+    return all(_satisfies_constraint(flat_obj, key, min_value)
                for key, min_value in constraints.items())
 
 

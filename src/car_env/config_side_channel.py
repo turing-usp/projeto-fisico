@@ -135,17 +135,17 @@ FIELDS: Dict[str, Tuple[Type, Value]] = {
     'FixedDeltaTime': (float, 0.04),
 }
 
-MessageWriter = Callable[[OutgoingMessage, Any], None]
 
-MESSAGE_WRITERS: Dict[Type, MessageWriter] = {
+_MessageWriter = Callable[[OutgoingMessage, Any], None]
+_MESSAGE_WRITERS: Dict[Type, _MessageWriter] = {
     int: OutgoingMessage.write_int32,
     float: OutgoingMessage.write_float32,
     str: OutgoingMessage.write_string,
     bool: OutgoingMessage.write_bool,
 }
 
-FIELD_WRITERS: Dict[str, MessageWriter] = {
-    field_name.lower(): MESSAGE_WRITERS[typ]
+_FIELD_WRITERS: Dict[str, _MessageWriter] = {
+    field_name.lower(): _MESSAGE_WRITERS[typ]
     for (field_name, (typ, default)) in FIELDS.items()
 }
 
@@ -172,7 +172,7 @@ class ConfigSideChannel(SideChannel):
             return setter
 
         try:
-            writer = FIELD_WRITERS[key_lower]
+            writer = _FIELD_WRITERS[key_lower]
         except KeyError:
             raise ValueError(f'Invalid key: {key}')
 
@@ -197,7 +197,7 @@ class ConfigSideChannel(SideChannel):
         else:
             setter(value)
 
-    def _set(self, writer: MessageWriter, key: str, value: Value) -> None:
+    def _set(self, writer: _MessageWriter, key: str, value: Value) -> None:
         logger = ray.get_actor('param_logger')
         logger.update_param.remote('unity_config/' + key, value)
 
