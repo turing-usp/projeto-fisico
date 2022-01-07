@@ -155,7 +155,7 @@ class CarEnv(Unity3DEnv):
                     raise RuntimeError(f"Parameter {param} not found in any of the wrappers")
                 logger.update_param.remote(f'{wrapper_name}/{param}', val)
 
-    def _on_train_result(self, result: dict) -> None:
+    def set_curriculum_phase_from_rllib_result(self, result: dict) -> None:
         next_phase = self.phase+1
         if next_phase < len(self.curriculum):
             if satisfies_constraints(result, self.curriculum[next_phase].get('when', [])):
@@ -244,16 +244,24 @@ class CarEnv(Unity3DEnv):
             for agent_id, s in raw_obs.items()
         }
 
-def create_env(config: EnvConfig) -> Union[CarEnv, Wrapper]:
+    @staticmethod
+    def from_config(config: EnvConfig) -> Union[CarEnv, Wrapper]:
+        """Cria um novo :class:`CarEnv` a partir das configurações dadas.
 
-    config = config.copy()
-    wrappers = config.pop('wrappers', [])
+        Args:
+            config: As configurações do :class:`CarEnv`.
 
-    env = CarEnv(**config)
-    wrapper_configs = config.get('curriculum', [{}])[0].get('wrappers', {})
-    for wrapper_type in wrappers:
-        env = wrapper_type(env, **wrapper_configs.get(wrapper_type.__name__, {}))
-    return env
+        Returns:
+            O ambiente, possivelmente com wrappers.
+        """
+        config = config.copy()
+        wrappers = config.pop('wrappers', [])
+
+        env = CarEnv(**config)
+        wrapper_configs = config.get('curriculum', [{}])[0].get('wrappers', {})
+        for wrapper_type in wrappers:
+            env = wrapper_type(env, **wrapper_configs.get(wrapper_type.__name__, {}))
+        return env
 
 
-tune.register_env("car_env", create_env)
+tune.register_env("car_env", CarEnv.from_config)

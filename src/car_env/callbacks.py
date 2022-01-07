@@ -32,4 +32,4 @@ class CarEnvCallbacks(DefaultCallbacks):
 
         trainer.workers.foreach_worker(
             lambda w: w.foreach_env(
-                lambda env: env._on_train_result(result)))
+                lambda env: env.set_curriculum_phase_from_rllib_result(result)))
