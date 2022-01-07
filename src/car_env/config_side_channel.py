@@ -1,4 +1,5 @@
-from typing import Any, Callable, Dict, Type, Union
+from __future__ import annotations
+from typing import Any, Callable, Dict, Tuple, Type, Union
 
 from mlagents_envs.side_channel.incoming_message import IncomingMessage
 from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
@@ -7,7 +8,9 @@ import ray
 
 from .schedulers import EventHandler, Scheduler
 
-FIELDS: Dict[str, Type] = {
+Value = Union[int, float, str, bool]
+
+FIELDS: Dict[str, Tuple[Type, Value]] = {
     #######################
     #    AGENT CONFIGS    #
     #######################
@@ -15,36 +18,36 @@ FIELDS: Dict[str, Type] = {
     # Number of agents (cars).
     # Takes effect: on environment reset
     # Default: 1
-    'AgentCount': int,
+    'AgentCount': (int, 1),
 
     # The agent requests an action every AgentDecisionPeriod timesteps.
     # Takes effect: on agent reset
     # Default: 20
-    'AgentDecisionPeriod': int,
+    'AgentDecisionPeriod': (int, 20),
 
     # Number of rays per direction used to create the observations.
     # Note: total number of rays = 2*AgentRaysPerDirection + 1
     # Takes effect: on agent reset
     # Default: 3
-    'AgentRaysPerDirection': int,
+    'AgentRaysPerDirection': (int, 3),
 
     # Length of the rays.
     # Takes effect: on agent reset
     # Default: 64
-    'AgentRayLength': int,
+    'AgentRayLength': (int, 64),
 
     # Maximum time (in seconds) between two checkpoints.
     # If an agent stays longer than this without passing a checkpoint, it is killed.
     # Takes effect: immediately
     # Default: 60
-    'AgentCheckpointTTL': float,
+    'AgentCheckpointTTL': (float, 60.0),
 
     # Maximum number of checkpoints.
     # When an agent reaches this number of checkpoints, it is automatically reset.
     # If zero, no maximum is enforced.
     # Takes effect: on agent checkpoint
     # Default: 0
-    'AgentCheckpointMax': int,
+    'AgentCheckpointMax': (int, 0),
 
 
     #######################
@@ -54,13 +57,13 @@ FIELDS: Dict[str, Type] = {
     # Difficulty of the chunks used (sequential, starting from zero)
     # Takes effect: on chunk creation
     # Default: 0
-    'ChunkDifficulty': int,
+    'ChunkDifficulty': (int, 0),
 
     # The number of agents required to pass a chunk before it's destroyed.
     # If zero, wait until all agents have passed.
     # Takes effect: on chunk creation
     # Default: 0
-    'ChunkMinAgentsBeforeDestruction': int,
+    'ChunkMinAgentsBeforeDestruction': (int, 0),
 
     # Delay (in seconds) before a chunk is destroyed when at least ChunkMinAgentsBeforeDestruction
     # have passed it.
@@ -68,13 +71,13 @@ FIELDS: Dict[str, Type] = {
     # still in that chunk.
     # Takes effect: immediately
     # Default: 5
-    'ChunkDelayBeforeDestruction': float,
+    'ChunkDelayBeforeDestruction': (float, 5.0),
 
     # The maximum time (in seconds) before a chunk is automatically destroyed.
     # If zero, wait until all agents have passed.
     # Takes effect: when a chunk first sees a car
     # Default: 30
-    'ChunkTTL': float,
+    'ChunkTTL': (float, 30.0),
 
 
     ########################
@@ -84,17 +87,17 @@ FIELDS: Dict[str, Type] = {
     # Number of hazards spawned per chunk.
     # Takes effect: on chunk creation
     # Default: 2
-    'HazardCountPerChunk': int,
+    'HazardCountPerChunk': (int, 2),
 
     # Minimum hazard speed
     # Takes effect: on chunk creation
     # Default: 1
-    'HazardMinSpeed': float,
+    'HazardMinSpeed': (float, 1.0),
 
     # Maximum hazard speed
     # Takes effect: on chunk creation
     # Default: 10
-    'HazardMaxSpeed': float,
+    'HazardMaxSpeed': (float, 10.0),
 
 
     ###############################
@@ -103,15 +106,15 @@ FIELDS: Dict[str, Type] = {
 
     # Takes effect: on agent reset
     # Default: 20_000
-    'CarStrenghtCoefficient': float,
+    'CarStrenghtCoefficient': (float, 20_000.0),
 
     # Takes effect: on agent reset
     # Default: 200
-    'CarBrakeStrength': float,
+    'CarBrakeStrength': (float, 200.0),
 
     # Takes effect: on agent reset
     # Default: 20
-    'CarMaxTurn': float,
+    'CarMaxTurn': (float, 20.0),
 
 
     ######################
@@ -123,13 +126,13 @@ FIELDS: Dict[str, Type] = {
     #  and TimeScale=2 for 2 simulation seconds / real second
     # Takes effect: immediately
     # Default: 1
-    'TimeScale': float,
+    'TimeScale': (float, 1.0),
 
     # Time between unity FixedUpdate calls.
     # Smaller is more accurate, but more computationally intensive
     # Takes effect: immediately
     # Default: 0.04
-    'FixedDeltaTime': float,
+    'FixedDeltaTime': (float, 0.04),
 }
 
 MessageWriter = Callable[[OutgoingMessage, Any], None]
@@ -143,18 +146,19 @@ MESSAGE_WRITERS: Dict[Type, MessageWriter] = {
 
 FIELD_WRITERS: Dict[str, MessageWriter] = {
     field_name.lower(): MESSAGE_WRITERS[typ]
-    for (field_name, typ) in FIELDS.items()
+    for (field_name, (typ, default)) in FIELDS.items()
 }
 
 
 class ConfigSideChannel(SideChannel):
-    Value = Union[int, float, str, bool]
+    Value = Value
 
     _handlers: Dict[str, EventHandler[Any]]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(uuid.UUID("3e7c67af-6e4d-446d-b318-0beb6546e274"))
         self._handlers = {}
+        self.set_defaults()
         for k, v in kwargs.items():
             self.set(k, v)
 
@@ -190,3 +194,7 @@ class ConfigSideChannel(SideChannel):
         msg.write_string(key)
         writer(msg, value)
         self.queue_message_to_send(msg)
+
+    def set_defaults(self) -> None:
+        for field_name, (typ, default) in FIELDS.items():
+            self.set(field_name, default)
