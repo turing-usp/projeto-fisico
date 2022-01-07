@@ -3,7 +3,7 @@
 import argparse
 from typing import Literal, Optional
 
-from car_env import EnvConfig
+from car_env.core import EnvConfig
 
 
 class Args(argparse.Namespace):
@@ -64,11 +64,14 @@ def run_with_args(args: Args):
     import ray
     from ray import tune
 
-    from car_env import CarEnv, LinearScheduler, CarEnvCallbacks, init as init_car_env
+    import car_env
+    from car_env.core import CarEnv
+    from car_env.callbacks import CarEnvCallbacks
+    from car_env.schedulers import LinearScheduler
     import wrappers
 
     ray.init()
-    init_car_env()
+    car_env.init()
 
     num_envs = max(args.workers, 1)
     agent_count_per_env = int(round(args.agents / num_envs))

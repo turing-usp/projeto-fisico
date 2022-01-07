@@ -5,7 +5,8 @@ from ray.rllib.utils.typing import AgentID
 import gym
 import gym.spaces
 
-from car_env import Wrappable, Wrapper, RewardWrapper, ObservtionWrapper, Info, FloatNDArray
+from car_env.core import Info, FloatNDArray
+from car_env.wrapper import Wrappable, Wrapper, RewardWrapper, ObservationWrapper
 
 
 T = TypeVar('T')
