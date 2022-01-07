@@ -6,7 +6,7 @@ from mlagents_envs.side_channel.side_channel import SideChannel, OutgoingMessage
 import uuid
 import ray
 
-from .schedulers import EventHandler, Scheduler
+from .schedulers import Scheduler
 
 Value = Union[int, float, str, bool]
 
@@ -153,38 +153,49 @@ FIELD_WRITERS: Dict[str, MessageWriter] = {
 class ConfigSideChannel(SideChannel):
     Value = Value
 
-    _handlers: Dict[str, EventHandler[Any]]
+    _param_setters: Dict[str, Callable[[Value], None]]
+    _schedulers: Dict[str, Scheduler]
 
     def __init__(self, **kwargs) -> None:
         super().__init__(uuid.UUID("3e7c67af-6e4d-446d-b318-0beb6546e274"))
-        self._handlers = {}
+        self._param_setters = {}
+        self._schedulers = {}
+
         self.set_defaults()
         for k, v in kwargs.items():
             self.set(k, v)
 
-    def handler(self, key: str) -> EventHandler[Any]:
-        key = key.lower()
+    def _get_or_create_setter(self, key: str) -> Callable[[Value], None]:
+        key_lower = key.lower()
 
-        h = self._handlers.pop(key, None)
-        if h is not None:
-            return h
+        if setter := self._param_setters.get(key_lower):
+            return setter
 
-        writer = FIELD_WRITERS.get(key, None)
-        if not writer:
+        try:
+            writer = FIELD_WRITERS[key_lower]
+        except KeyError:
             raise ValueError(f'Invalid key: {key}')
-        self._handlers[key] = EventHandler(lambda val: self._set(writer, key, val))
-        return self._handlers[key]
+
+        def new_setter(val): return self._set(writer, key_lower, val)
+        self._param_setters[key_lower] = new_setter
+        return new_setter
 
     def on_message_received(self, msg: IncomingMessage) -> None:
         print('ConfigSideChannel received an unexpected message:', msg)
 
     def set(self, key: str, value: Union[Value, Scheduler]) -> None:
-        h = self.handler(key)
+        setter = self._get_or_create_setter(key)
+        key_lower = key.lower()
 
-        h.unregister()
-        h(value)
+        if old_scheduler := self._schedulers.pop(key_lower, None):
+            old_scheduler.on_update.remove(setter)
+
         if isinstance(value, Scheduler):
-            h.register(value.on_update)
+            self._schedulers[key_lower] = value
+            setter(value.value)
+            value.on_update.append(setter)
+        else:
+            setter(value)
 
     def _set(self, writer: MessageWriter, key: str, value: Value) -> None:
         logger = ray.get_actor('param_logger')

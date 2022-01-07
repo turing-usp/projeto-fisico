@@ -4,36 +4,15 @@ import numpy as np
 from abc import abstractmethod, ABC
 
 
-def identity(x):
-    return x
-
-
 T = TypeVar('T')
 
 
-class EventHandler(Generic[T]):
-    _registered_on: List[List['EventHandler[T]']]
-    fn: Callable[[T], None]
-
-    def __init__(self, fn: Callable[[T], None]) -> None:
-        self._registered_on = []
-        self.fn = fn
-
-    def register(self, ev: List['EventHandler[T]']) -> None:
-        ev.append(self)
-        self._registered_on.append(ev)
-
-    def unregister(self) -> None:
-        for ev in self._registered_on:
-            ev.remove(self)
-        self._registered_on.clear()
-
-    def __call__(self, arg: T) -> None:
-        self.fn(arg)
-
-
 class Scheduler(Generic[T], ABC):
-    on_update: List[EventHandler[T]]
+
+
+
+
+    on_update: List[Callable[[T], None]]
     __val: T
 
     def __init__(self, val: T):
