@@ -1,76 +1,85 @@
+from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar
+
 import numpy as np
 from abc import abstractmethod, ABC
-from event import Event
 
 
-def identity(x):
-    return x
+T = TypeVar('T')
 
 
-class Scheduler(ABC):
-    def __init__(self, f=None):
-        self.on_update = Event()
-        self.__f_value = 0
-        self.__f = f or identity
+class Scheduler(Generic[T], ABC):
 
-    def update(self, new_val):
-        new_f_val = self.__f(new_val)
-        if new_f_val != self.__f_value:
-            self.__f_value = new_f_val
-            self.on_update()
+
+
+
+    on_update: List[Callable[[T], None]]
+    __val: T
+
+    def __init__(self, val: T):
+        self.on_update = []
+        self.__val = val
+
+    def update(self, new_val: Any) -> None:
+        if new_val != self.__val:
+            self.__val = new_val
+            for handler in self.on_update:
+                handler(new_val)
 
     @property
-    def value(self):
-        return self.__f_value
+    def value(self) -> T:
+        return self.__val
 
-    def __make_repr(self, *args, **kwargs):
+    def __repr__(self, *args, **kwargs) -> str:
         arg_strs = [
             *(repr(v) for v in args),
             *(k + '=' + repr(v) for k, v in kwargs.items()),
         ]
         return self.__class__.__name__ + '(' + ', '.join(arg_strs) + ')'
 
-    def __repr__(self, *args, **kwargs):
-        if self.__f != identity:
-            kwargs.setdefault('f', self.__f)
-        return self.__make_repr(*args, **kwargs)
-
     @abstractmethod
-    def step_to(self, n):
+    def step_to(self, n: int) -> None:
         pass
 
 
-class PiecewiseScheduler(Scheduler):
-    def __init__(self, parts, **kwargs):
-        super().__init__(**kwargs)
-        assert parts[0][0] == 0
+class PiecewiseScheduler(Scheduler[T]):
+    parts: List[Tuple[int, T]]
+    current_part: int
+
+    def __init__(self, parts: List[Tuple[int, T]], **kwargs) -> None:
         parts.sort()
+        assert parts[0][0] == 0
+        super().__init__(parts[0][1], **kwargs)
+
         self.parts = parts
         self.current_part = 0
 
         self.step_to(0)
 
-    def step_to(self, n):
+    def step_to(self, n: int) -> None:
         while n < self.parts[self.current_part][0]:
             self.current_part -= 1
         while self.current_part + 1 < len(self.parts) and self.parts[self.current_part+1][0] <= n:
             self.current_part += 1
         self.update(self.parts[self.current_part][1])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return super().__repr__(self.parts)
 
 
-class LinearScheduler(Scheduler):
-    def __init__(self, start, end, agent_timesteps, **kwargs):
-        super().__init__(**kwargs)
+class LinearScheduler(Scheduler[float]):
+    start: float
+    end: float
+    agent_timesteps: int
+
+    def __init__(self, start: float, end: float, agent_timesteps: int, **kwargs) -> None:
+        super().__init__(start, **kwargs)
         self.start = start
         self.end = end
         self.agent_timesteps = agent_timesteps
 
         self.step_to(0)
 
-    def step_to(self, n):
+    def step_to(self, n: int) -> None:
         if n >= self.agent_timesteps:
             self.update(self.end)
         else:
@@ -81,9 +90,15 @@ class LinearScheduler(Scheduler):
         return super().__repr__(self.start, self.end, self.agent_timesteps)
 
 
-class ExponentialScheduler(Scheduler):
-    def __init__(self, initial_value, multiplier, min_value=None, max_value=None, **kwargs):
-        super().__init__(**kwargs)
+class ExponentialScheduler(Scheduler[float]):
+    initial_value: float
+    multiplier: float
+    min_value: Optional[float]
+    max_value: Optional[float]
+
+    def __init__(self, initial_value: float, multiplier: float,
+                 min_value: float = None, max_value: float = None, **kwargs):
+        super().__init__(initial_value, **kwargs)
         self.initial_value = initial_value
         self.multiplier = multiplier
         self.min_value = min_value
@@ -91,13 +106,13 @@ class ExponentialScheduler(Scheduler):
 
         self.step_to(0)
 
-    def step_to(self, n):
+    def step_to(self, n: int) -> None:
         val = self.initial_value * self.multiplier**n
         if self.min_value is not None or self.max_value is not None:
-            val = np.clip(val, self.min_value, self.max_value)
+            val = np.clip(val, self.min_value, self.max_value)  # type: ignore
         self.update(val)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         kwargs = {}
         if self.min_value is not None:
             kwargs['min_value'] = self.min_value
