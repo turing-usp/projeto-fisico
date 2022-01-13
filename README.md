@@ -2,13 +2,14 @@
 
 ## Instalação
 
-Para realizar o treino é necessário instalar a versão 0.2 do mlagents. Isto é feito através do seguinte comando:
+Para realizar o treino é necessário instalar os pacotes listados no [Pipfile](Pipfile). Isto é feito através do seguinte comando:
 
 ```bash
 # Instala as bibliotecas necessárias
 sudo apt update
 sudo apt install cmake
-pip install gym ray[rllib] mlagents==0.20 torch
+pip install --user pipenv
+pipenv install
 ```
 
 ## Baixando os binários
@@ -22,17 +23,16 @@ pip install gdown
 Em seguida, utiliza-se o gdown para baixar do google drive os arquivos necessários:
 
 ```bash
-gdown --id 15ocBljC4BKiquJfQ3nCg49ZEoqyVZUm1 --output CarAgentRL.tar.gz
+gdown --id 1EGIZ9NQ-M-Sp_QEPNRd-OzsbxoWxU4hu --output CarAgentRL.tar.gz
 tar xf CarAgentRL.tar.gz
 ```
 
 ## Treinamento
 
-Para treinar os agentes basta executar o arquivo `train_rllib.py` da seguinte forma:
+Para treinar os agentes basta executar o arquivo [`train.py`](src/train.py) da seguinte forma:
 
 ```bash
-# Roda o treinamento
-python src/train_rllib.py -f CarAgentRL/CarAgentRL
+python src/train.py -f CarAgentRL/CarAgentRL
 ```
 
 ### Flags
@@ -64,8 +64,8 @@ tensorboard --log-dir=<path/do/treinamento>
 
 Para exemplificar, tomemos como base a estrutura abaixo:
 
-```txt
-results-19
+```text
+results
 │
 └───PPO
     │
@@ -78,7 +78,7 @@ results-19
 Executando o seguinte comando, abrirá o tensorboard com esses 4 experimentos:
 
 ```bash
-tensorboard --log-dir=results-19
+tensorboard --log-dir=results
 ```
 
 ![tensorboard](images/tensorboard.PNG)
