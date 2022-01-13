@@ -1,3 +1,5 @@
+"""Define os schedulers, que permitem o uso de parâmetros variáveis."""
+
 from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar
 
 import numpy as np
@@ -8,10 +10,24 @@ T = TypeVar('T')
 
 
 class Scheduler(Generic[T], ABC):
+    """Permite que ambientes tenham parâmetros variáveis.
 
+    Um :class:`Scheduler` guarda um valor que varia com o tempo (ou, mais
+    precisamente, com o número de steps).
 
+    O valor, accesível em :func:`value` é atualizado sempre que
+    :func:`step_to` ou :func:`update` forem chamados.
+    Quando o scheduler for atualizado, o evento :attr:`on_update`
+    é chamado com o novo valor (c.f. :class:`EventHandler`).
 
+    Args:
+        val: O valor inicial.
 
+    Attributes:
+        on_update: Lista de callables que são chamadas sempre que o valor
+            desse scheduler for atualizado. Essa lista pode ser modificada
+            diretamente por usuários com os métodos ``.append()`` e ``.remove()``.
+    """
     on_update: List[Callable[[T], None]]
     __val: T
 
@@ -27,6 +43,7 @@ class Scheduler(Generic[T], ABC):
 
     @property
     def value(self) -> T:
+        """O valor atual desse scheduler"""
         return self.__val
 
     def __repr__(self, *args, **kwargs) -> str:
@@ -38,10 +55,32 @@ class Scheduler(Generic[T], ABC):
 
     @abstractmethod
     def step_to(self, n: int) -> None:
+        """Atualiza o valor do scheduler para o step ``n``.
+
+        Args:
+            n: O número atual de steps **de agente**.
+        """
         pass
 
 
 class PiecewiseScheduler(Scheduler[T]):
+    """Um scheduler com um conjunto fixo de valores.
+
+    O valor desse scheduler é determinado a partir do parâmetro ``parts``,
+    que indica quais valores devem ser assumidos pelo scheduler,
+    e em quais momentos esses valores devem ser assumidos.
+
+    Arguments:
+        parts: Uma lista de tuplas ``(n, val)`` ordenada por ``n``.
+            Cada tupla indica que, no step ``n``, o valor do scheduler
+            deve ser atualizado para ``val``, A primeira tupla deve
+            **obrigatoriamente** ter ``n=0``.
+
+    Attributes:
+        parts: Uma lista de tuplas ``(n, val)``, conforme descrito acima.
+        current_parts: O índice da tupla atual em :attr:`parts`.
+    """
+
     parts: List[Tuple[int, T]]
     current_part: int
 
@@ -67,6 +106,24 @@ class PiecewiseScheduler(Scheduler[T]):
 
 
 class LinearScheduler(Scheduler[float]):
+    """Um scheduler cujo valor varia linearmente no tempo.
+
+    O valor desse scheduler é uma interpolação entre o valor inicial
+    (:attr:`start`) em `n = 0` e o valor final (:attr:`end`) em `n = agent_timesteps`.
+    Para `n >= agent_timesteps`, o valor é constante e igual a :attr:`end`.
+
+    Arguments:
+        start: O valor inicial do scheduler.
+        end: O valor final do scheduler.
+        agent_timesteps: O número de steps após os quais o scheduler atinge
+            o valor final.
+
+    Attributes:
+        start: O valor inicial do scheduler.
+        end: O valor final do scheduler.
+        agent_timesteps: O número de steps após os quais o scheduler atinge
+            o valor final.
+    """
     start: float
     end: float
     agent_timesteps: int
@@ -91,6 +148,27 @@ class LinearScheduler(Scheduler[float]):
 
 
 class ExponentialScheduler(Scheduler[float]):
+    """Um scheduler cujo valor varia exponencialmente no tempo.
+
+    O valor desse scheduler é igual a ``value = initial_value * multiplier**n``.
+
+    O valor é clipado para garantir que ele esteja sempre entre
+    :attr:`min_value` e :attr:`max_value`, inclusivo.
+
+    Arguments:
+        initial_value: O valor inicial do scheduler.
+        multiplier: O valor pelo qual ``scheduler.value`` é multiplicado
+            a cada step.
+        min_value: O valor mínimo do scheduler.
+        max_value: O valor máximo do scheduler.
+
+    Attributes:
+        initial_value: O valor inicial do scheduler.
+        multiplier: O valor pelo qual ``scheduler.value`` é multiplicado
+            a cada step.
+        min_value: O valor mínimo do scheduler.
+        max_value: O valor máximo do scheduler.
+    """
     initial_value: float
     multiplier: float
     min_value: Optional[float]
